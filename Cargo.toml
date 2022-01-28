@@ -2,20 +2,39 @@
 name = "bevy_vulkano"
 version = "0.1.0"
 edition = "2021"
+authors = ["Okko Hakola <okkohakola@gmail.com>"]
+description = "Vulkano Backend for Bevy"
+homepage = "https://github.com/hakolao/bevy_vulkano"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/hakolao/bevy_vulkano"
+categories = ["gui", "game-development"]
+keywords = ["gui", "imgui", "immediate", "portable", "gamedev", "bevy"]
 
 [features]
+default = []
+example_has_gui = ["gui"]
 gui = ["egui_winit_vulkano"]
 
 [dependencies]
 egui = "0.16.0"
+# Waiting for vulkano 0.28 (Needed to not clash winit 0.26 from bevy)
 vulkano = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1" }
+# Waiting for vulkano 0.28 (Needed to not clash winit 0.26 from bevy)
 vulkano-win = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1"}
 raw-window-handle = { version = "0.4" }
-vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1" }
 winit = "0.26.0"
+# Waiting for vulkano 0.28 (Needed to not clash winit 0.26 from bevy)
 egui_winit_vulkano = { git = "https://github.com/hakolao/egui_winit_vulkano", branch = "prepare-for-vulkano-0.28", optional = true }
+image = "0.23.14"
+approx = "0.5.1"
 
 [dependencies.bevy]
 version = "0.6"
 default-features = false
 features = []
+
+[dev-dependencies]
+anyhow = "1.0.40"
+# Waiting for vulkano 0.28 (Needed to not clash winit 0.26 from bevy)
+vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1" }

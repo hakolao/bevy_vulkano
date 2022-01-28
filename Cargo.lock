@@ -84,6 +84,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94a45b455c14666b85fc40a019e8ab9eb75e3a124e05494f5397122bc9eb06e0"
 
 [[package]]
+name = "approx"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -539,9 +548,12 @@ dependencies = [
 name = "bevy_vulkano"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "approx",
  "bevy",
  "egui",
  "egui_winit_vulkano",
+ "image",
  "raw-window-handle",
  "vulkano",
  "vulkano-shaders",

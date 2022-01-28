@@ -8,8 +8,7 @@ use std::{
     },
 };
 
-use anyhow::*;
-use egui_winit_vulkano::texture_from_file;
+use image::RgbaImage;
 #[cfg(target_os = "macos")]
 use vulkano::instance::InstanceCreationError;
 use vulkano::{
@@ -19,8 +18,8 @@ use vulkano::{
     },
     format::Format,
     image::{
-        view::ImageView, ImageAccess, ImageCreateFlags, ImageDimensions, ImageUsage,
-        ImageViewAbstract, StorageImage, SwapchainImage,
+        view::ImageView, ImageAccess, ImageCreateFlags, ImageCreationError, ImageDimensions,
+        ImageUsage, ImageViewAbstract, ImmutableImage, MipmapsCount, StorageImage, SwapchainImage,
     },
     instance::{
         debug::{DebugCallback, MessageSeverity, MessageType},
@@ -38,7 +37,7 @@ use vulkano::{
 use vulkano_win::create_vk_surface_from_handle;
 use winit::window::Window;
 
-use crate::plugins::vulkano_winit::VulkanoWinitConfig;
+use crate::VulkanoWinitConfig;
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub struct ImageTextureId(pub u32);
@@ -77,7 +76,7 @@ unsafe impl Send for Renderer {}
 
 impl Renderer {
     /// Creates a new GPU renderer for window with given parameters
-    pub fn new(window: Window, config: &VulkanoWinitConfig) -> Result<Self> {
+    pub fn new(window: Window, config: &VulkanoWinitConfig) -> Self {
         bevy::log::info!("Creating renderer");
         let instance = create_vk_instance(config.instance_extensions, &config.layers);
         let debug_callback = create_vk_debug_callback(&instance);
@@ -104,8 +103,7 @@ impl Renderer {
         );
         let device_type = physical_device.properties().device_type;
         // Create rendering surface from window
-        let surface = create_vk_surface_from_handle(window, instance.clone())
-            .context("Failed to create vulkan surface & window")?;
+        let surface = create_vk_surface_from_handle(window, instance.clone()).unwrap();
 
         // Create device
         let (device, graphics_queue, compute_queue) = Self::create_device(
@@ -113,7 +111,7 @@ impl Renderer {
             surface.clone(),
             config.device_extensions,
             config.features.clone(),
-        )?;
+        );
         // Create swap chain & frame(s) to which we'll render
         let (swap_chain, final_images) = Self::create_swap_chain(
             surface.clone(),
@@ -121,12 +119,12 @@ impl Renderer {
             device.clone(),
             graphics_queue.clone(),
             config.present_mode,
-        )?;
+        );
         let previous_frame_end = Some(sync::now(device.clone()).boxed());
         let image_format = final_images.first().unwrap().format();
         bevy::log::info!("Swapchain format {:?}", image_format);
 
-        Ok(Self {
+        Self {
             _instance: instance,
             _debug_callback: debug_callback,
             device,
@@ -143,7 +141,7 @@ impl Renderer {
             device_name,
             device_type,
             max_mem_gb,
-        })
+        }
     }
 
     /*================
@@ -156,48 +154,46 @@ impl Renderer {
         surface: Arc<Surface<Window>>,
         device_extensions: DeviceExtensions,
         features: Features,
-    ) -> Result<(Arc<Device>, Arc<Queue>, Arc<Queue>)> {
+    ) -> (Arc<Device>, Arc<Queue>, Arc<Queue>) {
         let (gfx_index, queue_family_graphics) = physical
             .queue_families()
             .enumerate()
             .find(|&(_i, q)| q.supports_graphics() && surface.is_supported(q).unwrap_or(false))
-            .context("couldn't find a graphical queue family")?;
+            .unwrap();
         let compute_family_data = physical
             .queue_families()
             .enumerate()
             .find(|&(i, q)| i != gfx_index && q.supports_compute());
 
-        Ok(
-            if let Some((_compute_index, queue_family_compute)) = compute_family_data {
-                let (device, mut queues) = {
-                    Device::new(
-                        physical,
-                        &features,
-                        &physical.required_extensions().union(&device_extensions),
-                        [(queue_family_graphics, 1.0), (queue_family_compute, 0.5)]
-                            .iter()
-                            .cloned(),
-                    )
-                    .context("failed to create device")?
-                };
-                let gfx_queue = queues.next().unwrap();
-                let compute_queue = queues.next().unwrap();
-                (device, gfx_queue, compute_queue)
-            } else {
-                let (device, mut queues) = {
-                    Device::new(
-                        physical,
-                        &features,
-                        &physical.required_extensions().union(&device_extensions),
-                        [(queue_family_graphics, 1.0)].iter().cloned(),
-                    )
-                    .context("failed to create device")?
-                };
-                let gfx_queue = queues.next().unwrap();
-                let compute_queue = gfx_queue.clone();
-                (device, gfx_queue, compute_queue)
-            },
-        )
+        if let Some((_compute_index, queue_family_compute)) = compute_family_data {
+            let (device, mut queues) = {
+                Device::new(
+                    physical,
+                    &features,
+                    &physical.required_extensions().union(&device_extensions),
+                    [(queue_family_graphics, 1.0), (queue_family_compute, 0.5)]
+                        .iter()
+                        .cloned(),
+                )
+                .unwrap()
+            };
+            let gfx_queue = queues.next().unwrap();
+            let compute_queue = queues.next().unwrap();
+            (device, gfx_queue, compute_queue)
+        } else {
+            let (device, mut queues) = {
+                Device::new(
+                    physical,
+                    &features,
+                    &physical.required_extensions().union(&device_extensions),
+                    [(queue_family_graphics, 1.0)].iter().cloned(),
+                )
+                .unwrap()
+            };
+            let gfx_queue = queues.next().unwrap();
+            let compute_queue = gfx_queue.clone();
+            (device, gfx_queue, compute_queue)
+        }
     }
 
     /// Creates swapchain and swapchain images
@@ -207,7 +203,7 @@ impl Renderer {
         device: Arc<Device>,
         queue: Arc<Queue>,
         present_mode: PresentMode,
-    ) -> Result<(Arc<Swapchain<Window>>, Vec<FinalImageView>)> {
+    ) -> (Arc<Swapchain<Window>>, Vec<FinalImageView>) {
         let caps = surface.capabilities(physical).unwrap();
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         let format = caps.supported_formats[0].0;
@@ -225,12 +221,13 @@ impl Renderer {
             .clipped(true)
             .color_space(ColorSpace::SrgbNonLinear)
             .layers(1)
-            .build()?;
+            .build()
+            .unwrap();
         let images = images
             .into_iter()
             .map(|image| ImageView::new(image).unwrap())
             .collect::<Vec<_>>();
-        Ok((swap_chain, images))
+        (swap_chain, images)
     }
 
     fn create_image_texture_id() -> ImageTextureId {
@@ -253,24 +250,21 @@ impl Renderer {
     }
 
     /// Adds texture to image_textures for later use, returns ImageTextureId
-    pub fn add_texture_from_file_bytes(
-        &mut self,
-        image_file_as_bytes: &[u8],
-    ) -> Result<ImageTextureId> {
-        let image_view = self.create_image_from_file_bytes(image_file_as_bytes)?;
+    pub fn add_texture_from_file_bytes(&mut self, image_file_as_bytes: &[u8]) -> ImageTextureId {
+        let image_view = self.create_image_from_file_bytes(image_file_as_bytes);
         let new_id = Self::create_image_texture_id();
         self.add_image_texture(new_id, image_view);
-        Ok(new_id)
+        new_id
     }
 
     /// Adds texture to image_textures for later use, returns ImageTextureId
     pub fn add_texture_from_image_view(
         &mut self,
         image_view: Arc<dyn ImageViewAbstract + 'static>,
-    ) -> Result<ImageTextureId> {
+    ) -> ImageTextureId {
         let new_id = Self::create_image_texture_id();
         self.add_image_texture(new_id, image_view);
-        Ok(new_id)
+        new_id
     }
 
     /// Adds texture to image_textures for later use, returns ImageTextureId
@@ -278,9 +272,8 @@ impl Renderer {
         &mut self,
         image_view: Arc<dyn ImageViewAbstract + 'static>,
         texture_id: ImageTextureId,
-    ) -> Result<()> {
+    ) {
         self.add_image_texture(texture_id, image_view);
-        Ok(())
     }
 
     fn add_image_texture(
@@ -300,9 +293,10 @@ impl Renderer {
     fn create_image_from_file_bytes(
         &self,
         file_bytes: &[u8],
-    ) -> Result<Arc<dyn ImageViewAbstract + 'static>> {
-        let image_view = texture_from_file(self.graphics_queue(), file_bytes, self.image_format())?;
-        Ok(image_view)
+    ) -> Arc<dyn ImageViewAbstract + 'static> {
+        let image_view =
+            texture_from_file(self.graphics_queue(), file_bytes, self.image_format()).unwrap();
+        image_view
     }
 
     /// Return default image format for images (swapchain format may differ)
@@ -382,21 +376,15 @@ impl Renderer {
 
     /// Add interim image view that can be used to render e.g. camera views or other views using
     /// the render pipeline. Not giving a view size ensures the image view follows swapchain (window).
-    pub fn add_image_target(
-        &mut self,
-        key: usize,
-        view_size: Option<[u32; 2]>,
-        format: Format,
-    ) -> Result<()> {
+    pub fn add_image_target(&mut self, key: usize, view_size: Option<[u32; 2]>, format: Format) {
         let size = if let Some(s) = view_size {
             s
         } else {
             self.final_image_size()
         };
-        let image = create_device_image(self.graphics_queue.clone(), size, format)?;
+        let image = create_device_image(self.graphics_queue.clone(), size, format);
         self.interim_image_views
             .insert(key, (image, view_size.is_none()));
-        Ok(())
     }
 
     /// Get interim image view by key (for render calls or for registering as texture for egui)
@@ -409,9 +397,8 @@ impl Renderer {
         self.interim_image_views.get(&key).is_some()
     }
 
-    pub fn remove_image_target(&mut self, key: usize) -> Result<()> {
+    pub fn remove_image_target(&mut self, key: usize) {
         self.interim_image_views.remove(&key);
-        Ok(())
     }
 
     /*================
@@ -432,11 +419,11 @@ impl Renderer {
     /// Returns a gpu future representing the time after which the swapchain image has been acquired
     /// and previous frame ended.
     /// After this, execute command buffers and return future from them to `finish_frame`.
-    pub fn start_frame(&mut self) -> Result<Box<dyn GpuFuture>> {
+    pub fn start_frame(&mut self) -> std::result::Result<Box<dyn GpuFuture>, AcquireError> {
         // Recreate swap chain if needed (when resizing of window occurs or swapchain is outdated)
         // Also resize render views if needed
         if self.recreate_swapchain {
-            self.recreate_swapchain_and_views()?;
+            self.recreate_swapchain_and_views();
         }
 
         // Acquire next image in the swapchain
@@ -445,7 +432,7 @@ impl Renderer {
                 Ok(r) => r,
                 Err(AcquireError::OutOfDate) => {
                     self.recreate_swapchain = true;
-                    return Err(anyhow!(AcquireError::OutOfDate));
+                    return Err(AcquireError::OutOfDate);
                 }
                 Err(e) => panic!("Failed to acquire next image: {:?}", e),
             };
@@ -492,7 +479,7 @@ impl Renderer {
 
     /// Swapchain is recreated when resized
     /// Swapchain images also get recreated
-    fn recreate_swapchain_and_views(&mut self) -> Result<()> {
+    fn recreate_swapchain_and_views(&mut self) {
         let dimensions: [u32; 2] = self.window().inner_size().into();
         let (new_swapchain, new_images) =
             match self.swap_chain.recreate().dimensions(dimensions).build() {
@@ -502,7 +489,7 @@ impl Renderer {
                         "{}",
                         SwapchainCreationError::UnsupportedDimensions.to_string()
                     );
-                    return Ok(());
+                    return;
                 }
                 Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
             };
@@ -522,41 +509,40 @@ impl Renderer {
             .collect::<Vec<usize>>();
         for i in resizable_views {
             let format = self.get_image_target(i).format();
-            self.remove_image_target(i)?;
-            self.add_image_target(i, None, format)?;
+            self.remove_image_target(i);
+            self.add_image_target(i, None, format);
         }
         self.recreate_swapchain = false;
-        Ok(())
     }
 }
 
 /// Creates a storage image on device
 #[allow(unused)]
-pub fn create_device_image(
-    queue: Arc<Queue>,
-    size: [u32; 2],
-    format: Format,
-) -> Result<DeviceImageView> {
+pub fn create_device_image(queue: Arc<Queue>, size: [u32; 2], format: Format) -> DeviceImageView {
     let dims = ImageDimensions::Dim2d {
         width: size[0],
         height: size[1],
         array_layers: 1,
     };
     let flags = ImageCreateFlags::none();
-    Ok(ImageView::new(StorageImage::with_usage(
-        queue.device().clone(),
-        dims,
-        format,
-        ImageUsage {
-            sampled: true,
-            storage: true,
-            color_attachment: true,
-            transfer_destination: true,
-            ..ImageUsage::none()
-        },
-        flags,
-        Some(queue.family()),
-    )?)?)
+    ImageView::new(
+        StorageImage::with_usage(
+            queue.device().clone(),
+            dims,
+            format,
+            ImageUsage {
+                sampled: true,
+                storage: true,
+                color_attachment: true,
+                transfer_destination: true,
+                ..ImageUsage::none()
+            },
+            flags,
+            Some(queue.family()),
+        )
+        .unwrap(),
+    )
+    .unwrap()
 }
 
 #[allow(unused)]
@@ -565,21 +551,59 @@ pub fn create_device_image_with_usage(
     size: [u32; 2],
     format: Format,
     usage: ImageUsage,
-) -> Result<DeviceImageView> {
+) -> DeviceImageView {
     let dims = ImageDimensions::Dim2d {
         width: size[0],
         height: size[1],
         array_layers: 1,
     };
     let flags = ImageCreateFlags::none();
-    Ok(ImageView::new(StorageImage::with_usage(
-        queue.device().clone(),
-        dims,
-        format,
-        usage,
-        flags,
-        Some(queue.family()),
-    )?)?)
+    ImageView::new(
+        StorageImage::with_usage(
+            queue.device().clone(),
+            dims,
+            format,
+            usage,
+            flags,
+            Some(queue.family()),
+        )
+        .unwrap(),
+    )
+    .unwrap()
+}
+
+pub fn texture_from_file(
+    queue: Arc<Queue>,
+    file_bytes: &[u8],
+    format: vulkano::format::Format,
+) -> Result<Arc<dyn ImageViewAbstract + Send + Sync + 'static>, ImageCreationError> {
+    use image::GenericImageView;
+
+    let img = image::load_from_memory(file_bytes).expect("Failed to load image from bytes");
+    let rgba = if let Some(rgba) = img.as_rgba8() {
+        rgba.to_owned().to_vec()
+    } else {
+        // Convert rgb to rgba
+        let rgb = img.as_rgb8().unwrap().to_owned();
+        let mut raw_data = vec![];
+        for val in rgb.chunks(3) {
+            raw_data.push(val[0]);
+            raw_data.push(val[1]);
+            raw_data.push(val[2]);
+            raw_data.push(255);
+        }
+        let new_rgba = RgbaImage::from_raw(rgb.width(), rgb.height(), raw_data).unwrap();
+        new_rgba.to_vec()
+    };
+    let dimensions = img.dimensions();
+    let vko_dims = ImageDimensions::Dim2d {
+        width: dimensions.0,
+        height: dimensions.1,
+        array_layers: 1,
+    };
+    let (texture, _tex_fut) =
+        ImmutableImage::from_iter(rgba.into_iter(), vko_dims, MipmapsCount::One, format, queue)?;
+    Ok(ImageView::new(texture).unwrap())
 }
 
 // Create vk instance

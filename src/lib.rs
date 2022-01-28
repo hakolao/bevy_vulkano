@@ -1,9 +1,16 @@
+#![allow(
+    clippy::needless_question_mark,
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::module_inception
+)]
+
 /*
 Pretty much the same as bevy_winit, but organized to use vulkano renderer backend.
 This allows you to create your own pipelines for rendering.
  */
 mod converters;
-#[cfg_attr(feature = "gui")]
+#[cfg(feature = "gui")]
 mod gui;
 mod utils;
 mod vulkano_renderer;
@@ -27,8 +34,9 @@ use bevy::{
         WindowFocused, WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
     },
 };
-#[cfg_attr(feature = "gui")]
+#[cfg(feature = "gui")]
 use egui_winit_vulkano::Gui;
+#[cfg(feature = "gui")]
 pub use gui::*;
 pub use utils::*;
 use vulkano::{
@@ -119,8 +127,8 @@ impl Plugin for VulkanoWinitPlugin {
             .add_system_to_stage(CoreStage::PreUpdate, resize_renderer)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
 
-        #[cfg_attr(feature = "gui")]
-        app.add_plugins(GuiPlgin::default());
+        #[cfg(feature = "gui")]
+        app.add_plugin(GuiPlgin::default());
     }
 }
 
@@ -359,11 +367,7 @@ pub fn winit_runner_with(mut app: App) {
             }
         }
 
-        // If gui resource exists, update
-        if let Some(mut gui) = app.world.get_non_send_resource_mut::<Gui>() {
-            gui.update(&event);
-        }
-        #[cfg_attr(feature = "gui")]
+        #[cfg(feature = "gui")]
         app.world
             .get_non_send_resource_mut::<Gui>()
             .unwrap()

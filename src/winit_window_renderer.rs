@@ -5,7 +5,7 @@ use bevy::{
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
-use crate::plugins::vulkano_winit::{Renderer, VulkanoWinitConfig};
+use crate::{Renderer, VulkanoWinitConfig};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows;
@@ -106,7 +106,7 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        let renderer = Renderer::new(winit_window, render_config).unwrap();
+        let renderer = Renderer::new(winit_window, render_config);
 
         let winit_window = renderer.window();
 
