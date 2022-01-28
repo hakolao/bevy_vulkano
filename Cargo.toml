@@ -1,0 +1,21 @@
+[package]
+name = "bevy_vulkano"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+gui = ["egui_winit_vulkano"]
+
+[dependencies]
+egui = "0.16.0"
+vulkano = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1" }
+vulkano-win = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1"}
+raw-window-handle = { version = "0.4" }
+vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1" }
+winit = "0.26.0"
+egui_winit_vulkano = { git = "https://github.com/hakolao/egui_winit_vulkano", branch = "prepare-for-vulkano-0.28", optional = true }
+
+[dependencies.bevy]
+version = "0.6"
+default-features = false
+features = []
