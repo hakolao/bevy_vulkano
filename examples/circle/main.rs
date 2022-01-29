@@ -6,7 +6,7 @@ use bevy::{
     app::PluginGroupBuilder, input::system::exit_on_esc_system, prelude::*, window::WindowMode,
 };
 use bevy_vulkano::{VulkanoWinitConfig, VulkanoWinitPlugin};
-use vulkano::{device::Features, swapchain::PresentMode};
+use vulkano::device::Features;
 
 use crate::render_system_plugin::MainRenderPlugin;
 
@@ -23,9 +23,10 @@ impl PluginGroup for PluginBundle {
         group.add(bevy::scene::ScenePlugin::default());
         group.add(bevy::input::InputPlugin::default());
         group.add(bevy::window::WindowPlugin::default());
-        // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner)
+        // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
+        // Bevy winit and render should be excluded
         group.add(VulkanoWinitPlugin::default());
-        // See here how rendering is orchestrated
+        // See `MainRenderPlugin` how rendering is orchestrated
         group.add(MainRenderPlugin::default());
     }
 }
@@ -37,7 +38,6 @@ fn main() {
                 fill_mode_non_solid: true,
                 ..Features::none()
             },
-            present_mode: PresentMode::Immediate,
             ..VulkanoWinitConfig::default()
         })
         .insert_resource(WindowDescriptor {

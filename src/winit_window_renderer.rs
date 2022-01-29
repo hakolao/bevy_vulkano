@@ -1,22 +1,28 @@
 use bevy::{
     math::IVec2,
+    utils::HashMap,
     window::{Window, WindowDescriptor, WindowId, WindowMode},
 };
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
-use crate::{Renderer, VulkanoWinitConfig};
+use crate::{VulkanoContext, VulkanoWinitWindow};
 
-#[derive(Debug, Default)]
-pub struct WinitWindows;
+#[derive(Default)]
+pub struct VulkanoWinitWindows {
+    pub windows: HashMap<winit::window::WindowId, VulkanoWinitWindow>,
+    pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
+    pub winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
+}
 
-impl WinitWindows {
-    pub fn create_window_with_renderer(
+impl VulkanoWinitWindows {
+    pub fn create_window(
+        &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
-        render_config: &VulkanoWinitConfig,
-    ) -> (Renderer, Window) {
+        vulkano_context: &VulkanoContext,
+    ) -> Window {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
             use winit::platform::windows::WindowBuilderExtWindows;
@@ -106,10 +112,6 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        let renderer = Renderer::new(winit_window, render_config);
-
-        let winit_window = renderer.window();
-
         if window_descriptor.cursor_locked {
             match winit_window.set_cursor_grab(true) {
                 Ok(_) => {}
@@ -120,7 +122,9 @@ impl WinitWindows {
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
 
-        let winit_window = renderer.window();
+        self.window_id_to_winit.insert(window_id, winit_window.id());
+        self.winit_to_window_id.insert(winit_window.id(), window_id);
+
         let position = winit_window
             .outer_position()
             .ok()
@@ -129,18 +133,43 @@ impl WinitWindows {
         let scale_factor = winit_window.scale_factor();
         let raw_window_handle = winit_window.raw_window_handle();
 
-        (
-            renderer,
-            Window::new(
-                window_id,
-                window_descriptor,
-                inner_size.width,
-                inner_size.height,
-                scale_factor,
-                position,
-                raw_window_handle,
-            ),
+        self.windows.insert(
+            winit_window.id(),
+            VulkanoWinitWindow::new(vulkano_context, winit_window, window_descriptor),
+        );
+
+        Window::new(
+            window_id,
+            window_descriptor,
+            inner_size.width,
+            inner_size.height,
+            scale_factor,
+            position,
+            raw_window_handle,
         )
+    }
+
+    pub fn get_vulkano_window_mut(&mut self, id: WindowId) -> Option<&mut VulkanoWinitWindow> {
+        self.window_id_to_winit
+            .get(&id)
+            .and_then(|id| self.windows.get_mut(id))
+    }
+
+    pub fn get_vulkano_window(&self, id: WindowId) -> Option<&VulkanoWinitWindow> {
+        self.window_id_to_winit
+            .get(&id)
+            .and_then(|id| self.windows.get(id))
+    }
+
+    pub fn get_winit_window(&self, id: WindowId) -> Option<&winit::window::Window> {
+        self.window_id_to_winit
+            .get(&id)
+            .and_then(|id| self.windows.get(id))
+            .and_then(|v_window| Some(v_window.window()))
+    }
+
+    pub fn get_window_id(&self, id: winit::window::WindowId) -> Option<WindowId> {
+        self.winit_to_window_id.get(&id).cloned()
     }
 }
 
@@ -192,6 +221,6 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
 
 // WARNING: this only works under the assumption that wasm runtime is single threaded
 #[cfg(target_arch = "wasm32")]
-unsafe impl Send for WinitWindows {}
+unsafe impl Send for VulkanoWinitWindows {}
 #[cfg(target_arch = "wasm32")]
-unsafe impl Sync for WinitWindows {}
+unsafe impl Sync for VulkanoWinitWindows {}

@@ -12,39 +12,40 @@ This allows you to create your own pipelines for rendering.
 mod converters;
 #[cfg(feature = "gui")]
 mod gui;
+mod pipeline_frame_data;
 mod utils;
 mod vulkano_renderer;
+mod vulkano_window;
 mod winit_config;
 mod winit_window_renderer;
 
 use bevy::{
     app::{App, AppExit, CoreStage, EventReader, Events, ManualEventReader, Plugin},
-    ecs::{system::IntoExclusiveSystem, world::World},
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         touch::TouchInput,
     },
     math::{ivec2, DVec2, Vec2},
-    prelude::ResMut,
-    utils::tracing::{error, trace, warn},
+    prelude::*,
     window::{
-        CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-        WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowDescriptor,
-        WindowFocused, WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+        CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
+        WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
+        WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
     },
 };
 #[cfg(feature = "gui")]
 use egui_winit_vulkano::Gui;
 #[cfg(feature = "gui")]
 pub use gui::*;
+pub use pipeline_frame_data::*;
 pub use utils::*;
 use vulkano::{
     device::{DeviceExtensions, Features},
     instance::InstanceExtensions,
-    swapchain::PresentMode,
 };
 pub use vulkano_renderer::*;
+pub use vulkano_window::*;
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -58,7 +59,6 @@ pub struct VulkanoWinitConfig {
     pub instance_extensions: InstanceExtensions,
     pub device_extensions: DeviceExtensions,
     pub features: Features,
-    pub present_mode: PresentMode,
     pub layers: Vec<&'static str>,
 }
 
@@ -74,7 +74,6 @@ impl Default for VulkanoWinitConfig {
                 ..DeviceExtensions::none()
             },
             features: Features::none(),
-            present_mode: PresentMode::Fifo,
             layers: vec![],
         }
     }
@@ -94,37 +93,19 @@ impl Plugin for VulkanoWinitPlugin {
             app.insert_resource(VulkanoWinitConfig::default());
         }
         let config = app.world.get_resource::<VulkanoWinitConfig>().unwrap();
-        // Primary Window
-        let window_descriptor = app
-            .world
-            .get_resource::<WindowDescriptor>()
-            .map(|descriptor| (*descriptor).clone())
-            .unwrap_or_default();
-        let window_id = WindowId::primary();
-        let (renderer, window) = WinitWindows::create_window_with_renderer(
-            &event_loop,
-            window_id,
-            &window_descriptor,
-            config,
-        );
+        let vulkano_context = VulkanoContext::new(config);
 
-        // Add window to bevy
-        let mut windows = app.world.get_resource_mut::<Windows>().unwrap();
-        windows.add(window);
-        let mut window_created_events = app
-            .world
-            .get_resource_mut::<Events<WindowCreated>>()
-            .unwrap();
-        window_created_events.send(WindowCreated {
-            id: window_id,
-        });
+        // Insert vulkano context resource & pipeline data
+        app.init_resource::<VulkanoWinitWindows>()
+            .init_resource::<PipelineData>()
+            .insert_resource(vulkano_context);
+
+        // Create initial window
+        handle_initial_window_events(&mut app.world, &event_loop);
 
         app.insert_non_send_resource(event_loop)
-            .insert_resource(renderer)
-            .insert_resource(BeforePipelineFuture(None))
-            .insert_resource(AfterPipelineFuture(None))
             .set_runner(winit_runner)
-            .add_system_to_stage(CoreStage::PreUpdate, resize_renderer)
+            .add_system_to_stage(CoreStage::PreUpdate, update_on_resize_system)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
 
         #[cfg(feature = "gui")]
@@ -132,19 +113,42 @@ impl Plugin for VulkanoWinitPlugin {
     }
 }
 
-fn resize_renderer(
-    mut renderer: ResMut<Renderer>,
-    mut resize_event_reader: EventReader<WindowResized>,
+fn update_on_resize_system(
+    mut pipeline_data: ResMut<PipelineData>,
+    mut windows: ResMut<VulkanoWinitWindows>,
+    mut window_resized_events: EventReader<WindowResized>,
+    mut window_created_events: EventReader<WindowCreated>,
 ) {
-    if let Some(_e) = resize_event_reader.iter().last() {
-        // Recreates swapchain...
-        renderer.resize();
+    let mut changed_window_ids = Vec::new();
+    for event in window_resized_events.iter().rev() {
+        if changed_window_ids.contains(&event.id) {
+            continue;
+        }
+        changed_window_ids.push(event.id);
+    }
+    for event in window_created_events.iter().rev() {
+        if changed_window_ids.contains(&event.id) {
+            continue;
+        }
+        changed_window_ids.push(event.id);
+    }
+    for id in changed_window_ids {
+        if let Some(vulkano_window) = windows.get_vulkano_window_mut(id) {
+            // Swap chain will be resized at the beginning of next frame. But user should update pipeline frame data
+            vulkano_window.resize();
+            // Insert or update pipeline frame data
+            pipeline_data.add(PipelineFrameData {
+                window_id: id,
+                before: None,
+                after: None,
+            });
+        }
     }
 }
 
 fn change_window(world: &mut World) {
     let world = world.cell();
-    let renderer = world.get_resource::<Renderer>().unwrap();
+    let vulkano_winit_windows = world.get_resource::<VulkanoWinitWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
 
     for bevy_window in windows.iter_mut() {
@@ -155,7 +159,7 @@ fn change_window(world: &mut World) {
                     mode,
                     resolution: (width, height),
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     match mode {
                         bevy::window::WindowMode::BorderlessFullscreen => {
                             window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
@@ -178,7 +182,7 @@ fn change_window(world: &mut World) {
                 bevy::window::WindowCommand::SetTitle {
                     title,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_title(&title);
                 }
                 bevy::window::WindowCommand::SetScaleFactor {
@@ -196,7 +200,7 @@ fn change_window(world: &mut World) {
                     logical_resolution: (width, height),
                     scale_factor,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_inner_size(
                         winit::dpi::LogicalSize::new(width, height)
                             .to_physical::<f64>(scale_factor),
@@ -208,25 +212,25 @@ fn change_window(world: &mut World) {
                 bevy::window::WindowCommand::SetResizable {
                     resizable,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_resizable(resizable);
                 }
                 bevy::window::WindowCommand::SetDecorations {
                     decorations,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_decorations(decorations);
                 }
                 bevy::window::WindowCommand::SetCursorIcon {
                     icon,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_cursor_icon(converters::convert_cursor_icon(icon));
                 }
                 bevy::window::WindowCommand::SetCursorLockMode {
                     locked,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window
                         .set_cursor_grab(locked)
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
@@ -234,13 +238,13 @@ fn change_window(world: &mut World) {
                 bevy::window::WindowCommand::SetCursorVisibility {
                     visible,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_cursor_visible(visible);
                 }
                 bevy::window::WindowCommand::SetCursorPosition {
                     position,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
                     window
                         .set_cursor_position(winit::dpi::LogicalPosition::new(
@@ -252,19 +256,19 @@ fn change_window(world: &mut World) {
                 bevy::window::WindowCommand::SetMaximized {
                     maximized,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_maximized(maximized)
                 }
                 bevy::window::WindowCommand::SetMinimized {
                     minimized,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_minimized(minimized)
                 }
                 bevy::window::WindowCommand::SetPosition {
                     position,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_outer_position(PhysicalPosition {
                         x: position[0],
                         y: position[1],
@@ -273,7 +277,7 @@ fn change_window(world: &mut World) {
                 bevy::window::WindowCommand::SetResizeConstraints {
                     resize_constraints,
                 } => {
-                    let window = renderer.window();
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     let constraints = resize_constraints.check_constraints();
                     let min_inner_size = LogicalSize {
                         width: constraints.min_width,
@@ -340,6 +344,7 @@ pub fn winit_runner(app: App) {
 
 pub fn winit_runner_with(mut app: App) {
     let mut event_loop = app.world.remove_non_send::<EventLoop<()>>().unwrap();
+    let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     app.world.insert_non_send(event_loop.create_proxy());
 
@@ -353,7 +358,7 @@ pub fn winit_runner_with(mut app: App) {
     let mut active = true;
 
     let event_handler = move |event: Event<()>,
-                              _event_loop: &EventLoopWindowTarget<()>,
+                              event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
         *control_flow = ControlFlow::Poll;
 
@@ -367,6 +372,7 @@ pub fn winit_runner_with(mut app: App) {
             }
         }
 
+        // Update gui with winit event
         #[cfg(feature = "gui")]
         app.world
             .get_non_send_resource_mut::<Gui>()
@@ -380,17 +386,19 @@ pub fn winit_runner_with(mut app: App) {
                 ..
             } => {
                 let world = app.world.cell();
-                let renderer = world.get_resource::<Renderer>().unwrap();
+                let vulkano_winit_windows =
+                    world.get_resource_mut::<VulkanoWinitWindows>().unwrap();
                 let mut windows = world.get_resource_mut::<Windows>().unwrap();
-                let window_id = if winit_window_id == renderer.window().id() {
-                    WindowId::primary()
-                } else {
-                    warn!(
-                        "Skipped event for unknown winit Window Id {:?}",
-                        winit_window_id
-                    );
-                    return;
-                };
+                let window_id =
+                    if let Some(window_id) = vulkano_winit_windows.get_window_id(winit_window_id) {
+                        window_id
+                    } else {
+                        warn!(
+                            "Skipped event for unknown winit Window Id {:?}",
+                            winit_window_id
+                        );
+                        return;
+                    };
 
                 let window = if let Some(window) = windows.get_mut(window_id) {
                     window
@@ -430,7 +438,8 @@ pub fn winit_runner_with(mut app: App) {
                     } => {
                         let mut cursor_moved_events =
                             world.get_resource_mut::<Events<CursorMoved>>().unwrap();
-                        let winit_window = renderer.window();
+                        let winit_window =
+                            vulkano_winit_windows.get_winit_window(window_id).unwrap();
                         let inner_size = winit_window.inner_size();
 
                         // move origin to bottom left
@@ -639,6 +648,11 @@ pub fn winit_runner_with(mut app: App) {
                 active = true;
             }
             event::Event::MainEventsCleared => {
+                handle_create_window_events(
+                    &mut app.world,
+                    event_loop,
+                    &mut create_window_event_reader,
+                );
                 if active {
                     app.update();
                 }
@@ -650,5 +664,51 @@ pub fn winit_runner_with(mut app: App) {
         run_return(&mut event_loop, event_handler);
     } else {
         run(event_loop, event_handler);
+    }
+}
+
+fn handle_create_window_events(
+    world: &mut World,
+    event_loop: &EventLoopWindowTarget<()>,
+    create_window_event_reader: &mut ManualEventReader<CreateWindow>,
+) {
+    let world = world.cell();
+    let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
+    let mut vulkano_winit_windows = world.get_resource_mut::<VulkanoWinitWindows>().unwrap();
+    let mut windows = world.get_resource_mut::<Windows>().unwrap();
+    let create_window_events = world.get_resource::<Events<CreateWindow>>().unwrap();
+    let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
+    for create_window_event in create_window_event_reader.iter(&create_window_events) {
+        let window = vulkano_winit_windows.create_window(
+            event_loop,
+            create_window_event.id,
+            &create_window_event.descriptor,
+            &vulkano_context,
+        );
+        windows.add(window);
+        window_created_events.send(WindowCreated {
+            id: create_window_event.id,
+        });
+    }
+}
+
+fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
+    let world = world.cell();
+    let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
+    let mut vulkano_winit_windows = world.get_resource_mut::<VulkanoWinitWindows>().unwrap();
+    let mut windows = world.get_resource_mut::<Windows>().unwrap();
+    let mut create_window_events = world.get_resource_mut::<Events<CreateWindow>>().unwrap();
+    let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
+    for create_window_event in create_window_events.drain() {
+        let window = vulkano_winit_windows.create_window(
+            event_loop,
+            create_window_event.id,
+            &create_window_event.descriptor,
+            &vulkano_context,
+        );
+        windows.add(window);
+        window_created_events.send(WindowCreated {
+            id: create_window_event.id,
+        });
     }
 }
