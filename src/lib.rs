@@ -10,8 +10,6 @@ Pretty much the same as bevy_winit, but organized to use vulkano renderer backen
 This allows you to create your own pipelines for rendering.
  */
 mod converters;
-#[cfg(feature = "gui")]
-mod gui;
 mod pipeline_frame_data;
 mod utils;
 mod vulkano_renderer;
@@ -34,10 +32,6 @@ use bevy::{
         WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
     },
 };
-#[cfg(feature = "gui")]
-use egui_winit_vulkano::Gui;
-#[cfg(feature = "gui")]
-pub use gui::*;
 pub use pipeline_frame_data::*;
 pub use utils::*;
 use vulkano::{
@@ -107,9 +101,6 @@ impl Plugin for VulkanoWinitPlugin {
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PreUpdate, update_on_resize_system)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
-
-        #[cfg(feature = "gui")]
-        app.add_plugin(GuiPlgin::default());
     }
 }
 
@@ -374,11 +365,35 @@ pub fn winit_runner_with(mut app: App) {
 
         // Update gui with winit event
         #[cfg(feature = "gui")]
-        app.world
-            .get_non_send_resource_mut::<Gui>()
-            .unwrap()
-            .update(&event);
+        {
+            let event_wrapper = &event;
+            match &event_wrapper {
+                event::Event::WindowEvent {
+                    event: _event,
+                    window_id: winit_window_id,
+                    ..
+                } => {
+                    let world = app.world.cell();
+                    let mut vulkano_winit_windows =
+                        world.get_resource_mut::<VulkanoWinitWindows>().unwrap();
+                    let window_id = if let Some(window_id) =
+                        vulkano_winit_windows.get_window_id(*winit_window_id)
+                    {
+                        window_id
+                    } else {
+                        return;
+                    };
+                    vulkano_winit_windows
+                        .get_vulkano_window_mut(window_id)
+                        .unwrap()
+                        .gui()
+                        .update(event_wrapper);
+                }
+                _ => (),
+            }
+        }
 
+        // Main events...
         match event {
             event::Event::WindowEvent {
                 event,

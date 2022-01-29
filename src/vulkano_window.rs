@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use bevy::{utils::HashMap, window::WindowDescriptor};
 #[cfg(feature = "gui")]
+use egui::CtxRef;
+#[cfg(feature = "gui")]
 use egui_winit_vulkano::Gui;
 use vulkano::{
     device::Queue,
@@ -77,6 +79,18 @@ impl VulkanoWinitWindow {
             #[cfg(feature = "gui")]
             gui,
         }
+    }
+
+    /// Get egui gui context
+    #[cfg(feature = "gui")]
+    pub fn gui_context(&self) -> CtxRef {
+        self.gui.context()
+    }
+
+    ///Get reference to egui gui
+    #[cfg(feature = "gui")]
+    pub fn gui(&mut self) -> &mut Gui {
+        &mut self.gui
     }
 
     /// Return swapchain image format
@@ -185,6 +199,10 @@ impl VulkanoWinitWindow {
         if self.recreate_swapchain {
             self.recreate_swapchain_and_views();
         }
+
+        // Begin gui frame
+        #[cfg(feature = "gui")]
+        self.gui.begin_frame();
 
         // Acquire next image in the swapchain
         let (image_num, suboptimal, acquire_future) =

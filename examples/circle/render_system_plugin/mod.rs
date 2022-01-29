@@ -2,10 +2,6 @@
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::{prelude::*, window::WindowId};
 use bevy_vulkano::{PipelineData, UnsafeGpuFuture, VulkanoWinitWindows};
-#[cfg(feature = "example_has_gui")]
-use egui::CtxRef;
-#[cfg(feature = "example_has_gui")]
-use egui_winit_vulkano::Gui;
 use vulkano::{image::ImageAccess, sync::GpuFuture};
 
 use crate::render_pass::{Pass, RenderPassDeferred};
@@ -111,14 +107,15 @@ fn pre_render_setup_system(
 fn post_render_system(
     mut vulkano_windows: ResMut<VulkanoWinitWindows>,
     mut pipeline_frame_data: ResMut<PipelineData>,
-    #[cfg(feature = "example_has_gui")] mut gui: NonSendMut<Gui>,
 ) {
     for (window_id, frame_data) in pipeline_frame_data.frame_data.iter_mut() {
         if let Some(vulkano_window) = vulkano_windows.get_vulkano_window_mut(*window_id) {
             #[cfg(feature = "example_has_gui")]
             if let Some(after) = frame_data.after.take() {
                 let final_image_view = vulkano_window.final_image();
-                let at_end_future = gui.draw_on_image(after.into_inner(), final_image_view);
+                let at_end_future = vulkano_window
+                    .gui()
+                    .draw_on_image(after.into_inner(), final_image_view);
                 vulkano_window.finish_frame(at_end_future);
             }
             #[cfg(not(feature = "example_has_gui"))]
@@ -182,12 +179,20 @@ pub fn main_render_system(
 }
 
 #[cfg(feature = "example_has_gui")]
-fn set_gui_styles_system(_ctx: Res<CtxRef>) {
-    // Set styles here if needed
+fn set_gui_styles_system(vulkano_windows: Res<VulkanoWinitWindows>) {
+    let primary_window = vulkano_windows
+        .get_vulkano_window(WindowId::primary())
+        .unwrap();
+    let _ctx = primary_window.gui_context();
+    // Set styles here... for primary window
 }
 
 #[cfg(feature = "example_has_gui")]
-fn main_gui_system(ctx: Res<CtxRef>, diagnostics: Res<Diagnostics>) {
+fn main_gui_system(vulkano_windows: Res<VulkanoWinitWindows>, diagnostics: Res<Diagnostics>) {
+    let primary_window = vulkano_windows
+        .get_vulkano_window(WindowId::primary())
+        .unwrap();
+    let ctx = primary_window.gui_context();
     egui::Area::new("fps")
         .fixed_pos(egui::pos2(10.0, 10.0))
         .show(&ctx, |ui| {
