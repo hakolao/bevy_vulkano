@@ -1,13 +1,9 @@
-use bevy::{
-    app::AppExit,
-    window::{CreateWindow, WindowCloseRequested},
-};
 #[cfg(feature = "example_has_gui")]
 use bevy::{
     app::PluginGroupBuilder,
     input::system::exit_on_esc_system,
     prelude::*,
-    window::{WindowId, WindowMode},
+    window::{CreateWindow, WindowId, WindowMode},
 };
 #[cfg(feature = "example_has_gui")]
 use bevy_vulkano::{VulkanoWinitConfig, VulkanoWinitPlugin, VulkanoWinitWindows};
@@ -34,6 +30,10 @@ impl PluginGroup for PluginBundle {
 fn main() {
     println!("Multi window Gui example needs to be run with --features example_has_gui")
 }
+
+/*
+* This example adds windows when clicking space button. Windows can be closed as well
+ */
 
 #[cfg(feature = "example_has_gui")]
 fn main() {
@@ -100,7 +100,7 @@ pub fn main_render_system_primary_window(mut vulkano_windows: ResMut<VulkanoWini
     egui::Area::new("Primary Window Gui")
         .fixed_pos(egui::pos2(10.0, 10.0))
         .show(&ctx, |ui| {
-            ui.label("Primary Window Gui");
+            ui.label("Primary Window");
         });
     // Render egui
     let final_image = vulkano_window.final_image();
@@ -134,7 +134,7 @@ pub fn main_render_system_secondary_window(mut vulkano_windows: ResMut<VulkanoWi
         egui::Area::new("Secondary Window Gui")
             .fixed_pos(egui::pos2(10.0, 10.0))
             .show(&ctx, |ui| {
-                ui.label("Secondary Window Gui");
+                ui.label(format!("Secondary Window id {:?}", window_id));
             });
         // Render egui
         let final_image = vulkano_window.final_image();
