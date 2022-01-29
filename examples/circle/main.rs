@@ -14,14 +14,13 @@ pub struct PluginBundle;
 
 impl PluginGroup for PluginBundle {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
+        // Minimum plugins for the demo
         group.add(bevy::log::LogPlugin::default());
         group.add(bevy::core::CorePlugin::default());
-        group.add(bevy::transform::TransformPlugin::default());
         group.add(bevy::diagnostic::DiagnosticsPlugin::default());
         group.add(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default());
-        group.add(bevy::asset::AssetPlugin::default());
-        group.add(bevy::scene::ScenePlugin::default());
         group.add(bevy::input::InputPlugin::default());
+        // Needed for the `VulkanoWinitPlugin`
         group.add(bevy::window::WindowPlugin::default());
         // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
         // Bevy winit and render should be excluded
