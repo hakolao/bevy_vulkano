@@ -133,47 +133,41 @@ pub fn main_render_system(
     mut pipeline_frame_data: ResMut<PipelineData>,
     mut render_pass_deferred: ResMut<RenderPassDeferred>,
 ) {
-    for (window_id, mut frame_data) in pipeline_frame_data.frame_data.iter_mut() {
-        if window_id == &WindowId::primary() {
-            if let Some(vulkano_window) = vulkano_windows.get_vulkano_window_mut(*window_id) {
-                // We take the before pipeline future leaving None in its place
-                if let Some(before_future) = frame_data.before.take() {
-                    let final_image_view = vulkano_window.final_image();
-                    let dims = final_image_view.image().dimensions().width_height();
-                    let ar = dims[0] as f32 / dims[1] as f32;
-                    // Camera would be better :)
-                    let world_to_screen =
-                        bevy::math::Mat4::orthographic_rh(-ar, ar, -1.0, 1.0, 0.0, 999.0);
-                    let mut frame = render_pass_deferred
-                        .frame(
-                            [0.0; 4],
-                            before_future.into_inner(),
-                            final_image_view.clone(),
-                            world_to_screen,
-                        )
-                        .unwrap();
-                    let mut after_future = None;
-                    while let Some(pass) = frame.next_pass().unwrap() {
-                        after_future = match pass {
-                            Pass::Deferred(mut dp) => {
-                                dp.draw_circle(bevy::math::Vec2::new(0.0, 0.0), 0.2, [
-                                    1.0, 0.0, 0.0, 1.0,
-                                ])
-                                .unwrap();
-                                None
-                            }
-                            Pass::Finished(af) => Some(af),
-                        };
+    let mut frame_data = pipeline_frame_data.get_mut(WindowId::primary()).unwrap();
+    if let Some(vulkano_window) = vulkano_windows.get_vulkano_window_mut(WindowId::primary()) {
+        // We take the before pipeline future leaving None in its place
+        if let Some(before_future) = frame_data.before.take() {
+            let final_image_view = vulkano_window.final_image();
+            let dims = final_image_view.image().dimensions().width_height();
+            let ar = dims[0] as f32 / dims[1] as f32;
+            // Camera would be better :)
+            let world_to_screen = bevy::math::Mat4::orthographic_rh(-ar, ar, -1.0, 1.0, 0.0, 999.0);
+            let mut frame = render_pass_deferred
+                .frame(
+                    [0.0; 4],
+                    before_future.into_inner(),
+                    final_image_view.clone(),
+                    world_to_screen,
+                )
+                .unwrap();
+            let mut after_future = None;
+            while let Some(pass) = frame.next_pass().unwrap() {
+                after_future = match pass {
+                    Pass::Deferred(mut dp) => {
+                        dp.draw_circle(bevy::math::Vec2::new(0.0, 0.0), 0.2, [1.0, 0.0, 0.0, 1.0])
+                            .unwrap();
+                        None
                     }
-                    let after_drawing = after_future
-                        .unwrap()
-                        .then_signal_fence_and_flush()
-                        .unwrap()
-                        .boxed();
-                    // Update after pipeline future (so post render will know to present frame)
-                    frame_data.after = Some(UnsafeGpuFuture::new(after_drawing));
-                }
+                    Pass::Finished(af) => Some(af),
+                };
             }
+            let after_drawing = after_future
+                .unwrap()
+                .then_signal_fence_and_flush()
+                .unwrap()
+                .boxed();
+            // Update after pipeline future (so post render will know to present frame)
+            frame_data.after = Some(UnsafeGpuFuture::new(after_drawing));
         }
     }
 }
