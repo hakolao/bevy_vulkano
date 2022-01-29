@@ -29,7 +29,7 @@ use bevy::{
     window::{
         CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
         WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-        WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+        WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
     },
 };
 pub use pipeline_frame_data::*;
@@ -50,6 +50,7 @@ pub use winit_window_renderer::*;
 
 /// Vulkano related configurations
 pub struct VulkanoWinitConfig {
+    pub add_primary_window: bool,
     pub instance_extensions: InstanceExtensions,
     pub device_extensions: DeviceExtensions,
     pub features: Features,
@@ -59,6 +60,7 @@ pub struct VulkanoWinitConfig {
 impl Default for VulkanoWinitConfig {
     fn default() -> Self {
         VulkanoWinitConfig {
+            add_primary_window: true,
             instance_extensions: InstanceExtensions {
                 ext_debug_utils: true,
                 ..vulkano_win::required_extensions()
@@ -87,12 +89,22 @@ impl Plugin for VulkanoWinitPlugin {
             app.insert_resource(VulkanoWinitConfig::default());
         }
         let config = app.world.get_resource::<VulkanoWinitConfig>().unwrap();
+
+        // Add WindowPlugin
+        let add_primary_window = config.add_primary_window;
+
+        // Create vulkano context
         let vulkano_context = VulkanoContext::new(config);
 
-        // Insert vulkano context resource & pipeline data
-        app.init_resource::<VulkanoWinitWindows>()
-            .init_resource::<PipelineData>()
-            .insert_resource(vulkano_context);
+        // Insert window plugin, vulkano context, windows resource & pipeline data
+        app.add_plugin(bevy::window::WindowPlugin {
+            add_primary_window,
+            // We don't want to run exit_on_close_system from WindowPlugin, because it closes the entire app on each window close
+            exit_on_close: false,
+        })
+        .init_resource::<VulkanoWinitWindows>()
+        .init_resource::<PipelineData>()
+        .insert_resource(vulkano_context);
 
         // Create initial window
         handle_initial_window_events(&mut app.world, &event_loop);
@@ -100,6 +112,7 @@ impl Plugin for VulkanoWinitPlugin {
         app.insert_non_send_resource(event_loop)
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PreUpdate, update_on_resize_system)
+            .add_system_to_stage(CoreStage::PreUpdate, exit_on_window_close_system)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
     }
 }
@@ -383,11 +396,11 @@ pub fn winit_runner_with(mut app: App) {
                     } else {
                         return;
                     };
-                    vulkano_winit_windows
-                        .get_vulkano_window_mut(window_id)
-                        .unwrap()
-                        .gui()
-                        .update(event_wrapper);
+                    if let Some(vulkano_window) =
+                        vulkano_winit_windows.get_vulkano_window_mut(window_id)
+                    {
+                        vulkano_window.gui().update(event_wrapper);
+                    }
                 }
                 _ => (),
             }
@@ -725,5 +738,30 @@ fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
         window_created_events.send(WindowCreated {
             id: create_window_event.id,
         });
+    }
+}
+
+pub fn exit_on_window_close_system(
+    mut app_exit_events: EventWriter<AppExit>,
+    mut window_close_requested_events: EventReader<WindowCloseRequested>,
+    mut windows: ResMut<VulkanoWinitWindows>,
+    mut pipeline_data: ResMut<PipelineData>,
+) {
+    for event in window_close_requested_events.iter() {
+        // Close app on primary window exit
+        if event.id == WindowId::primary() {
+            app_exit_events.send(AppExit);
+        }
+        // But don't close app on secondary window exit. Instead cleanup...
+        else {
+            let window_id = event.id;
+            pipeline_data.remove(window_id);
+            let winit_id = if let Some(winit_window) = windows.get_winit_window(window_id) {
+                winit_window.id()
+            } else {
+                continue;
+            };
+            windows.windows.remove(&winit_id);
+        }
     }
 }

@@ -20,8 +20,6 @@ impl PluginGroup for PluginBundle {
         group.add(bevy::diagnostic::DiagnosticsPlugin::default());
         group.add(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default());
         group.add(bevy::input::InputPlugin::default());
-        // Needed for the `VulkanoWinitPlugin`
-        group.add(bevy::window::WindowPlugin::default());
         // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
         // Bevy winit and render should be excluded
         group.add(VulkanoWinitPlugin::default());

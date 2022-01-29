@@ -13,6 +13,10 @@ impl PipelineData {
         self.frame_data.insert(data.window_id, data);
     }
 
+    pub fn remove(&mut self, id: WindowId) {
+        self.frame_data.remove(&id);
+    }
+
     pub fn get(&self, id: WindowId) -> Option<&PipelineFrameData> {
         self.frame_data.get(&id)
     }
