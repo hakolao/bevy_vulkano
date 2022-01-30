@@ -2,14 +2,15 @@
 
 ![Apache](https://img.shields.io/badge/license-Apache-blue.svg)
 
-This plugin replaces core loop & rendering in bevy with Vulkano backend.
+This plugin replaces core loop & rendering in bevy with [Vulkano](https://github.com/vulkano-rs/vulkano) backend.
 
 The plugin contains functionality for resizing, multiple windows & utility for beginning and ending the frame.
 However, you'll need to do everything in between yourself (rendering). A good way to get started is to look at the examples.
 
 1. Add `VulkanoWinitPlugin`. It also adds `WindowPlugin` and anything that's needed.
-2. Then create your own rendering systems using vulkano's pipelines (See example.). You'll need to know how to use Vulkano.
-3. If you want to use `egui` library with this, add `egui_winit_vulkano` & `egui` to your dependencies and `bevy_vulkano` with feature `gui`.
+2. Then create your own rendering systems using vulkano's pipelines (See example.). You'll need to know how to use [Vulkano](https://github.com/vulkano-rs/vulkano).
+3. If you want to use [egui](https://github.com/emilk/egui) library with this, add [egui_winit_vulkano](https://github.com/hakolao/egui_winit_vulkano) &
+`egui` to your dependencies and `bevy_vulkano` with feature `gui`.
 
 ## Usage
 
