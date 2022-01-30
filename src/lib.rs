@@ -63,7 +63,7 @@ impl Default for VulkanoWinitConfig {
             add_primary_window: true,
             instance_extensions: InstanceExtensions {
                 ext_debug_utils: true,
-                ..vulkano_win::required_extensions()
+                ..required_extensions()
             },
             device_extensions: DeviceExtensions {
                 khr_swapchain: true,

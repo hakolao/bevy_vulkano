@@ -14,6 +14,7 @@ use vulkano::{
         view::ImageView, ImageCreateFlags, ImageCreationError, ImageDimensions, ImageUsage,
         ImageViewAbstract, ImmutableImage, MipmapsCount, StorageImage, SwapchainImage,
     },
+    instance::InstanceExtensions,
     sync::GpuFuture,
 };
 use winit::window::Window;
@@ -151,4 +152,26 @@ pub fn texture_from_file(
     let (texture, _tex_fut) =
         ImmutableImage::from_iter(rgba.into_iter(), vko_dims, MipmapsCount::One, format, queue)?;
     Ok(ImageView::new(texture).unwrap())
+}
+
+/// Copied from vulkano winit (one less winit dep...)
+pub fn required_extensions() -> InstanceExtensions {
+    let ideal = InstanceExtensions {
+        khr_surface: true,
+        khr_xlib_surface: true,
+        khr_xcb_surface: true,
+        khr_wayland_surface: true,
+        khr_android_surface: true,
+        khr_win32_surface: true,
+        mvk_ios_surface: true,
+        mvk_macos_surface: true,
+        khr_get_physical_device_properties2: true,
+        khr_get_surface_capabilities2: true,
+        ..InstanceExtensions::none()
+    };
+
+    match InstanceExtensions::supported_by_core() {
+        Ok(supported) => supported.intersection(&ideal),
+        Err(_) => InstanceExtensions::none(),
+    }
 }

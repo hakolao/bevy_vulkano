@@ -2,10 +2,17 @@
 
 ![Apache](https://img.shields.io/badge/license-Apache-blue.svg)
 
-This plugin replaces core loop & rendering in bevy with [Vulkano](https://github.com/vulkano-rs/vulkano) backend.
+This plugin replaces core loop & rendering in [Bevy](https://github.com/bevyengine/bevy) with [Vulkano](https://github.com/vulkano-rs/vulkano) backend.
+Basically this allows you to be fully in control of your render pipelines with Vulkano without having to bother yourself with
+architecture much. Just roll your pipelines and have fun.
+
+This makes it extremely easy to do following with Vulkano:
+- Windowless Apps
+- Multiple Windows
+- 
 
 The plugin contains functionality for resizing, multiple windows & utility for beginning and ending the frame.
-However, you'll need to do everything in between yourself (rendering). A good way to get started is to look at the examples.
+However, you'll need to do everything in between yourself. A good way to get started is to look at the examples.
 
 1. Add `VulkanoWinitPlugin`. It also adds `WindowPlugin` and anything that's needed.
 2. Then create your own rendering systems using vulkano's pipelines (See example.). You'll need to know how to use [Vulkano](https://github.com/vulkano-rs/vulkano).
