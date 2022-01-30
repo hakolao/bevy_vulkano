@@ -3,7 +3,7 @@
 This plugin replaces core loop & rendering in bevy with Vulkano backend.
 
 The plugin contains functionality for resizing, multiple windows & utility for beginning and ending the frame.
-However, you'll need to do everything in between yourself (rendering).
+However, you'll need to do everything in between yourself (rendering). A good way to get started is to look at the examples.
 
 1. Add `VulkanoWinitPlugin`. It also adds `WindowPlugin` and anything that's needed.
 2. Then create your own rendering systems using vulkano's pipelines (See example.). You'll need to know how to use Vulkano.
@@ -73,6 +73,7 @@ vulkano-win = "0.28"
 cargo run --example circle --features example_has_gui
 cargo run --example circle
 cargo run --example multi_window_gui --features example_has_gui
+cargo run --example windowless_compute
 ```
 
 ToDo:
