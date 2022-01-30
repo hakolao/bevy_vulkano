@@ -14,7 +14,6 @@ mod pipeline_frame_data;
 mod utils;
 mod vulkano_context;
 mod vulkano_window;
-mod winit_config;
 mod winit_window_renderer;
 
 use bevy::{
@@ -45,11 +44,22 @@ use winit::{
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
-pub use winit_config::*;
 pub use winit_window_renderer::*;
 
-/// Vulkano related configurations
+/// Vulkano & winit related configurations
 pub struct VulkanoWinitConfig {
+    /// Configures the winit library to return control to the main thread after
+    /// the [run](bevy_app::App::run) loop is exited. Winit strongly recommends
+    /// avoiding this when possible. Before using this please read and understand
+    /// the [caveats](winit::platform::run_return::EventLoopExtRunReturn::run_return)
+    /// in the winit documentation.
+    ///
+    /// This feature is only available on desktop `target_os` configurations.
+    /// Namely `windows`, `macos`, `linux`, `dragonfly`, `freebsd`, `netbsd`, and
+    /// `openbsd`. If set to true on an unsupported platform
+    /// [run](bevy_app::App::run) will panic.
+    pub return_from_run: bool,
+    /// Whether pirmary window is created at start
     pub add_primary_window: bool,
     pub instance_extensions: InstanceExtensions,
     pub device_extensions: DeviceExtensions,
@@ -60,6 +70,7 @@ pub struct VulkanoWinitConfig {
 impl Default for VulkanoWinitConfig {
     fn default() -> Self {
         VulkanoWinitConfig {
+            return_from_run: false,
             add_primary_window: true,
             instance_extensions: InstanceExtensions {
                 ext_debug_utils: true,
@@ -359,7 +370,7 @@ pub fn winit_runner_with(mut app: App) {
 
     let should_return_from_run = app
         .world
-        .get_resource::<WinitConfig>()
+        .get_resource::<VulkanoWinitConfig>()
         .map_or(false, |config| config.return_from_run);
 
     let mut active = true;
