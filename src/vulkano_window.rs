@@ -200,10 +200,6 @@ impl VulkanoWinitWindow {
             self.recreate_swapchain_and_views();
         }
 
-        // Begin gui frame
-        #[cfg(feature = "gui")]
-        self.gui.begin_frame();
-
         // Acquire next image in the swapchain
         let (image_num, suboptimal, acquire_future) =
             match swapchain::acquire_next_image(self.swap_chain.clone(), None) {

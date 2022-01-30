@@ -12,7 +12,7 @@ This allows you to create your own pipelines for rendering.
 mod converters;
 mod pipeline_frame_data;
 mod utils;
-mod vulkano_renderer;
+mod vulkano_context;
 mod vulkano_window;
 mod winit_config;
 mod winit_window_renderer;
@@ -38,7 +38,7 @@ use vulkano::{
     device::{DeviceExtensions, Features},
     instance::InstanceExtensions,
 };
-pub use vulkano_renderer::*;
+pub use vulkano_context::*;
 pub use vulkano_window::*;
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
@@ -114,6 +114,9 @@ impl Plugin for VulkanoWinitPlugin {
             .add_system_to_stage(CoreStage::PreUpdate, update_on_resize_system)
             .add_system_to_stage(CoreStage::PreUpdate, exit_on_window_close_system)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
+        // Add gui begin frame system
+        #[cfg(feature = "gui")]
+        app.add_system_to_stage(CoreStage::PreUpdate, begin_egui_frame_system);
     }
 }
 
@@ -399,6 +402,7 @@ pub fn winit_runner_with(mut app: App) {
                     if let Some(vulkano_window) =
                         vulkano_winit_windows.get_vulkano_window_mut(window_id)
                     {
+                        // Update egui with the window event
                         vulkano_window.gui().update(event_wrapper);
                     }
                 }
@@ -763,5 +767,12 @@ pub fn exit_on_window_close_system(
             };
             windows.windows.remove(&winit_id);
         }
+    }
+}
+
+#[cfg(feature = "gui")]
+pub fn begin_egui_frame_system(mut vulkano_windows: ResMut<VulkanoWinitWindows>) {
+    for (_, v) in vulkano_windows.windows.iter_mut() {
+        v.gui().begin_frame();
     }
 }
