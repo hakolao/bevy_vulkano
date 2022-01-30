@@ -21,7 +21,6 @@ use winit::window::Window;
 
 use crate::{FinalImageView, VulkanoWinitConfig};
 
-/// Renderer that handles all gpu side rendering
 pub struct VulkanoContext {
     instance: Arc<Instance>,
     _debug_callback: DebugCallback,
@@ -38,7 +37,6 @@ unsafe impl Sync for VulkanoContext {}
 unsafe impl Send for VulkanoContext {}
 
 impl VulkanoContext {
-    /// Creates a new GPU renderer for window with given parameters
     pub fn new(config: &VulkanoWinitConfig) -> Self {
         bevy::log::info!("Creating RenderContext");
         let instance = create_vk_instance(config.instance_extensions, &config.layers);
