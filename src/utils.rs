@@ -55,6 +55,12 @@ impl ImageTextureId {
     }
 }
 
+impl Default for ImageTextureId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub const DEFAULT_IMAGE_FORMAT: Format = Format::R8G8B8A8_UNORM;
 
 /// Creates a storage image on device

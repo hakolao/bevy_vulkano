@@ -165,7 +165,7 @@ impl VulkanoWinitWindows {
         self.window_id_to_winit
             .get(&id)
             .and_then(|id| self.windows.get(id))
-            .and_then(|v_window| Some(v_window.window()))
+            .map(|v_window| v_window.window())
     }
 
     pub fn get_window_id(&self, id: winit::window::WindowId) -> Option<WindowId> {

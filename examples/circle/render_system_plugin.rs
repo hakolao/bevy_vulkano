@@ -146,7 +146,7 @@ pub fn main_render_system(
                 .frame(
                     [0.0; 4],
                     before_future.into_inner(),
-                    final_image_view.clone(),
+                    final_image_view,
                     world_to_screen,
                 )
                 .unwrap();

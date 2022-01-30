@@ -31,6 +31,7 @@ fn run_compute_shader_once_then_exit(
     mut app_exit_events: EventWriter<AppExit>,
 ) {
     // Create pipeline
+    #[allow(clippy::needless_question_mark)]
     let pipeline = {
         mod cs {
             vulkano_shaders::shader! {
@@ -60,7 +61,7 @@ fn run_compute_shader_once_then_exit(
     };
     // Create buffer
     let data_buffer = {
-        let data_iter = (0..65536u32).map(|n| n);
+        let data_iter = (0..65536u32).collect::<Vec<u32>>();
         CpuAccessibleBuffer::from_iter(
             vulkano_context.device(),
             BufferUsage {
@@ -94,7 +95,7 @@ fn run_compute_shader_once_then_exit(
             PipelineBindPoint::Compute,
             pipeline.layout().clone(),
             0,
-            set.clone(),
+            set,
         )
         .dispatch([1024, 1, 1])
         .unwrap();
