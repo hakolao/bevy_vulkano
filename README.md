@@ -1,5 +1,7 @@
 # bevy_vulkano
 
+![Apache](https://img.shields.io/badge/license-Apache-blue.svg)
+
 This plugin replaces core loop & rendering in bevy with Vulkano backend.
 
 The plugin contains functionality for resizing, multiple windows & utility for beginning and ending the frame.
@@ -76,5 +78,9 @@ cargo run --example multi_window_gui --features example_has_gui
 cargo run --example windowless_compute
 ```
 
+### Contributing
+
 ToDo:
 - [ ] Update Cargo.toml to new crates once Vulkano 0.28 is out...
+- [ ] Publish as a crate
+- [ ] Github action workflow
