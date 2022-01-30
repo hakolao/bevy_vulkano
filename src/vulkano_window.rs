@@ -21,10 +21,6 @@ use crate::{
     create_device_image, DeviceImageView, FinalImageView, VulkanoContext, DEFAULT_IMAGE_FORMAT,
 };
 
-unsafe impl Sync for VulkanoWinitWindow {}
-
-unsafe impl Send for VulkanoWinitWindow {}
-
 pub struct VulkanoWinitWindow {
     surface: Arc<Surface<Window>>,
     graphics_queue: Arc<Queue>,
@@ -39,6 +35,10 @@ pub struct VulkanoWinitWindow {
     #[cfg(feature = "gui")]
     gui: Gui,
 }
+
+unsafe impl Sync for VulkanoWinitWindow {}
+
+unsafe impl Send for VulkanoWinitWindow {}
 
 impl VulkanoWinitWindow {
     /// Creates new `VulkanoWinitWindow` that is used to orchestrate rendering on the window's swapchain.
