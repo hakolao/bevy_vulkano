@@ -14,7 +14,7 @@ mod pipeline_frame_data;
 mod utils;
 mod vulkano_context;
 mod vulkano_window;
-mod winit_window_renderer;
+mod vulkano_winit_windows;
 
 use bevy::{
     app::{App, AppExit, CoreStage, EventReader, Events, ManualEventReader, Plugin},
@@ -39,12 +39,12 @@ use vulkano::{
 };
 pub use vulkano_context::*;
 pub use vulkano_window::*;
+pub use vulkano_winit_windows::*;
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
-pub use winit_window_renderer::*;
 
 /// Vulkano & winit related configurations
 pub struct VulkanoWinitConfig {

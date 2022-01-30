@@ -42,7 +42,7 @@ unsafe impl Send for VulkanoWinitWindow {}
 
 impl VulkanoWinitWindow {
     /// Creates new `VulkanoWinitWindow` that is used to orchestrate rendering on the window's swapchain.
-    /// Takes ownership of winit window.s
+    /// Takes ownership of winit window
     pub fn new(
         vulkano_context: &VulkanoContext,
         window: winit::window::Window,
