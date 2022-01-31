@@ -16,8 +16,7 @@ However, you'll need to do everything in between yourself. A good way to get sta
 
 1. Add `VulkanoWinitPlugin`. It also adds `WindowPlugin` and anything that's needed.
 2. Then create your own rendering systems using vulkano's pipelines (See example.). You'll need to know how to use [Vulkano](https://github.com/vulkano-rs/vulkano).
-3. If you want to use [egui](https://github.com/emilk/egui) library with this, add [egui_winit_vulkano](https://github.com/hakolao/egui_winit_vulkano) &
-`egui` to your dependencies and `bevy_vulkano` with feature `gui`.
+3. If you want to use [egui](https://github.com/emilk/egui) library with this, add `egui` and `bevy_vulkano` with feature `gui`.
 
 ## Usage
 
