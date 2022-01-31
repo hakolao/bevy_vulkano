@@ -6,16 +6,16 @@ use bevy::{
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
-use crate::{VulkanoContext, VulkanoWinitWindow};
+use crate::{VulkanoContext, VulkanoWindowRenderer};
 
 #[derive(Default)]
-pub struct VulkanoWinitWindows {
-    pub windows: HashMap<winit::window::WindowId, VulkanoWinitWindow>,
+pub struct VulkanoWindows {
+    pub windows: HashMap<winit::window::WindowId, VulkanoWindowRenderer>,
     pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
     pub winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
 }
 
-impl VulkanoWinitWindows {
+impl VulkanoWindows {
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
@@ -135,7 +135,7 @@ impl VulkanoWinitWindows {
 
         self.windows.insert(
             winit_window.id(),
-            VulkanoWinitWindow::new(vulkano_context, winit_window, window_descriptor),
+            VulkanoWindowRenderer::new(vulkano_context, winit_window, window_descriptor),
         );
 
         Window::new(
@@ -149,13 +149,13 @@ impl VulkanoWinitWindows {
         )
     }
 
-    pub fn get_vulkano_window_mut(&mut self, id: WindowId) -> Option<&mut VulkanoWinitWindow> {
+    pub fn get_vulkano_window_mut(&mut self, id: WindowId) -> Option<&mut VulkanoWindowRenderer> {
         self.window_id_to_winit
             .get(&id)
             .and_then(|id| self.windows.get_mut(id))
     }
 
-    pub fn get_vulkano_window(&self, id: WindowId) -> Option<&VulkanoWinitWindow> {
+    pub fn get_vulkano_window(&self, id: WindowId) -> Option<&VulkanoWindowRenderer> {
         self.window_id_to_winit
             .get(&id)
             .and_then(|id| self.windows.get(id))

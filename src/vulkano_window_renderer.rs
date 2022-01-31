@@ -21,9 +21,11 @@ use crate::{
     create_device_image, DeviceImageView, FinalImageView, VulkanoContext, DEFAULT_IMAGE_FORMAT,
 };
 
-pub struct VulkanoWinitWindow {
+pub struct VulkanoWindowRenderer {
     surface: Arc<Surface<Window>>,
     graphics_queue: Arc<Queue>,
+    #[allow(unused)]
+    compute_queue: Arc<Queue>,
     swap_chain: Arc<Swapchain<Window>>,
     final_views: Vec<FinalImageView>,
     /// Image view that is to be rendered with our pipeline.
@@ -36,18 +38,18 @@ pub struct VulkanoWinitWindow {
     gui: Gui,
 }
 
-unsafe impl Sync for VulkanoWinitWindow {}
+unsafe impl Sync for VulkanoWindowRenderer {}
 
-unsafe impl Send for VulkanoWinitWindow {}
+unsafe impl Send for VulkanoWindowRenderer {}
 
-impl VulkanoWinitWindow {
-    /// Creates new `VulkanoWinitWindow` that is used to orchestrate rendering on the window's swapchain.
+impl VulkanoWindowRenderer {
+    /// Creates new `VulkanoWindowRenderer` that is used to orchestrate rendering on the window's swapchain.
     /// Takes ownership of winit window
     pub fn new(
         vulkano_context: &VulkanoContext,
         window: winit::window::Window,
         descriptor: &WindowDescriptor,
-    ) -> VulkanoWinitWindow {
+    ) -> VulkanoWindowRenderer {
         // Create rendering surface from window
         let surface = create_vk_surface_from_handle(window, vulkano_context.instance()).unwrap();
         // Create swap chain & frame(s) to which we'll render
@@ -62,14 +64,13 @@ impl VulkanoWinitWindow {
         );
 
         let previous_frame_end = Some(sync::now(vulkano_context.device()).boxed());
-        let image_format = final_views.first().unwrap().format();
-        bevy::log::info!("Window swapchain format {:?}", image_format);
         #[cfg(feature = "gui")]
         let gui = Gui::new(surface.clone(), vulkano_context.graphics_queue(), true);
 
-        VulkanoWinitWindow {
+        VulkanoWindowRenderer {
             surface,
             graphics_queue: vulkano_context.graphics_queue(),
+            compute_queue: vulkano_context.compute_queue(),
             swap_chain,
             final_views,
             image_views: HashMap::default(),

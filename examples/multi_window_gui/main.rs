@@ -6,7 +6,7 @@ use bevy::{
     window::{CreateWindow, WindowId, WindowMode},
 };
 #[cfg(feature = "example_has_gui")]
-use bevy_vulkano::{VulkanoWinitConfig, VulkanoWinitPlugin, VulkanoWinitWindows};
+use bevy_vulkano::{VulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin};
 
 #[cfg(feature = "example_has_gui")]
 pub struct PluginBundle;
@@ -79,7 +79,7 @@ fn create_new_window_system(
 }
 
 #[cfg(feature = "example_has_gui")]
-pub fn main_render_system_primary_window(mut vulkano_windows: ResMut<VulkanoWinitWindows>) {
+pub fn main_render_system_primary_window(mut vulkano_windows: ResMut<VulkanoWindows>) {
     let vulkano_window = vulkano_windows
         .get_vulkano_window_mut(WindowId::primary())
         .unwrap();
@@ -106,7 +106,7 @@ pub fn main_render_system_primary_window(mut vulkano_windows: ResMut<VulkanoWini
 }
 
 #[cfg(feature = "example_has_gui")]
-pub fn main_render_system_secondary_window(mut vulkano_windows: ResMut<VulkanoWinitWindows>) {
+pub fn main_render_system_secondary_window(mut vulkano_windows: ResMut<VulkanoWindows>) {
     let primary_window_id = vulkano_windows
         .get_winit_window(WindowId::primary())
         .unwrap()

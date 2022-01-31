@@ -13,8 +13,8 @@ mod converters;
 mod pipeline_frame_data;
 mod utils;
 mod vulkano_context;
-mod vulkano_window;
-mod vulkano_winit_windows;
+mod vulkano_window_renderer;
+mod vulkano_windows;
 
 use bevy::{
     app::{App, AppExit, CoreStage, EventReader, Events, ManualEventReader, Plugin},
@@ -38,8 +38,8 @@ use vulkano::{
     instance::InstanceExtensions,
 };
 pub use vulkano_context::*;
-pub use vulkano_window::*;
-pub use vulkano_winit_windows::*;
+pub use vulkano_window_renderer::*;
+pub use vulkano_windows::*;
 use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, WindowEvent},
@@ -113,8 +113,8 @@ impl Plugin for VulkanoWinitPlugin {
             // We don't want to run exit_on_close_system from WindowPlugin, because it closes the entire app on each window close
             exit_on_close: false,
         })
-        .init_resource::<VulkanoWinitWindows>()
-        .init_resource::<PipelineData>()
+        .init_resource::<VulkanoWindows>()
+        .init_resource::<WindowSyncData>()
         .insert_resource(vulkano_context);
 
         // Create initial window
@@ -132,8 +132,8 @@ impl Plugin for VulkanoWinitPlugin {
 }
 
 fn update_on_resize_system(
-    mut pipeline_data: ResMut<PipelineData>,
-    mut windows: ResMut<VulkanoWinitWindows>,
+    mut pipeline_data: ResMut<WindowSyncData>,
+    mut windows: ResMut<VulkanoWindows>,
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
 ) {
@@ -155,7 +155,7 @@ fn update_on_resize_system(
             // Swap chain will be resized at the beginning of next frame. But user should update pipeline frame data
             vulkano_window.resize();
             // Insert or update pipeline frame data
-            pipeline_data.add(PipelineFrameData {
+            pipeline_data.add(SyncData {
                 window_id: id,
                 before: None,
                 after: None,
@@ -166,7 +166,7 @@ fn update_on_resize_system(
 
 fn change_window(world: &mut World) {
     let world = world.cell();
-    let vulkano_winit_windows = world.get_resource::<VulkanoWinitWindows>().unwrap();
+    let vulkano_winit_windows = world.get_resource::<VulkanoWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
 
     for bevy_window in windows.iter_mut() {
@@ -402,7 +402,7 @@ pub fn winit_runner_with(mut app: App) {
                 } => {
                     let world = app.world.cell();
                     let mut vulkano_winit_windows =
-                        world.get_resource_mut::<VulkanoWinitWindows>().unwrap();
+                        world.get_resource_mut::<VulkanoWindows>().unwrap();
                     let window_id = if let Some(window_id) =
                         vulkano_winit_windows.get_window_id(*winit_window_id)
                     {
@@ -429,8 +429,7 @@ pub fn winit_runner_with(mut app: App) {
                 ..
             } => {
                 let world = app.world.cell();
-                let vulkano_winit_windows =
-                    world.get_resource_mut::<VulkanoWinitWindows>().unwrap();
+                let vulkano_winit_windows = world.get_resource_mut::<VulkanoWindows>().unwrap();
                 let mut windows = world.get_resource_mut::<Windows>().unwrap();
                 let window_id =
                     if let Some(window_id) = vulkano_winit_windows.get_window_id(winit_window_id) {
@@ -717,7 +716,7 @@ fn handle_create_window_events(
 ) {
     let world = world.cell();
     let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
-    let mut vulkano_winit_windows = world.get_resource_mut::<VulkanoWinitWindows>().unwrap();
+    let mut vulkano_winit_windows = world.get_resource_mut::<VulkanoWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let create_window_events = world.get_resource::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
@@ -738,7 +737,7 @@ fn handle_create_window_events(
 fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
     let world = world.cell();
     let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
-    let mut vulkano_winit_windows = world.get_resource_mut::<VulkanoWinitWindows>().unwrap();
+    let mut vulkano_winit_windows = world.get_resource_mut::<VulkanoWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let mut create_window_events = world.get_resource_mut::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
@@ -759,8 +758,8 @@ fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
 pub fn exit_on_window_close_system(
     mut app_exit_events: EventWriter<AppExit>,
     mut window_close_requested_events: EventReader<WindowCloseRequested>,
-    mut windows: ResMut<VulkanoWinitWindows>,
-    mut pipeline_data: ResMut<PipelineData>,
+    mut windows: ResMut<VulkanoWindows>,
+    mut pipeline_data: ResMut<WindowSyncData>,
 ) {
     for event in window_close_requested_events.iter() {
         // Close app on primary window exit
@@ -782,7 +781,7 @@ pub fn exit_on_window_close_system(
 }
 
 #[cfg(feature = "gui")]
-pub fn begin_egui_frame_system(mut vulkano_windows: ResMut<VulkanoWinitWindows>) {
+pub fn begin_egui_frame_system(mut vulkano_windows: ResMut<VulkanoWindows>) {
     for (_, v) in vulkano_windows.windows.iter_mut() {
         v.gui().begin_frame();
     }

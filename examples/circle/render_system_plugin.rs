@@ -1,7 +1,7 @@
 #[cfg(feature = "example_has_gui")]
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::{prelude::*, window::WindowId};
-use bevy_vulkano::{PipelineData, UnsafeGpuFuture, VulkanoWinitWindows};
+use bevy_vulkano::{UnsafeGpuFuture, VulkanoWindows, WindowSyncData};
 use vulkano::{image::ImageAccess, sync::GpuFuture};
 
 use crate::render_pass::{Pass, RenderPassDeferred};
@@ -74,7 +74,7 @@ impl Plugin for MainRenderPlugin {
 }
 
 /// Insert our render pass at startup
-fn insert_render_pass_system(mut commands: Commands, vulkano_windows: Res<VulkanoWinitWindows>) {
+fn insert_render_pass_system(mut commands: Commands, vulkano_windows: Res<VulkanoWindows>) {
     let vulkano_window = vulkano_windows
         .get_vulkano_window(WindowId::primary())
         .unwrap();
@@ -86,8 +86,8 @@ fn insert_render_pass_system(mut commands: Commands, vulkano_windows: Res<Vulkan
 
 /// Starts frame, updates before pipeline future & final image view
 fn pre_render_setup_system(
-    mut vulkano_windows: ResMut<VulkanoWinitWindows>,
-    mut pipeline_frame_data: ResMut<PipelineData>,
+    mut vulkano_windows: ResMut<VulkanoWindows>,
+    mut pipeline_frame_data: ResMut<WindowSyncData>,
 ) {
     for (window_id, mut frame_data) in pipeline_frame_data.frame_data.iter_mut() {
         if let Some(vulkano_window) = vulkano_windows.get_vulkano_window_mut(*window_id) {
@@ -105,8 +105,8 @@ fn pre_render_setup_system(
 
 /// If rendering was successful, draw gui & finish frame
 fn post_render_system(
-    mut vulkano_windows: ResMut<VulkanoWinitWindows>,
-    mut pipeline_frame_data: ResMut<PipelineData>,
+    mut vulkano_windows: ResMut<VulkanoWindows>,
+    mut pipeline_frame_data: ResMut<WindowSyncData>,
 ) {
     for (window_id, frame_data) in pipeline_frame_data.frame_data.iter_mut() {
         if let Some(vulkano_window) = vulkano_windows.get_vulkano_window_mut(*window_id) {
@@ -129,8 +129,8 @@ fn post_render_system(
 // Only draw primary now...
 // You could render different windows in their own systems...
 pub fn main_render_system(
-    mut vulkano_windows: ResMut<VulkanoWinitWindows>,
-    mut pipeline_frame_data: ResMut<PipelineData>,
+    mut vulkano_windows: ResMut<VulkanoWindows>,
+    mut pipeline_frame_data: ResMut<WindowSyncData>,
     mut render_pass_deferred: ResMut<RenderPassDeferred>,
 ) {
     let mut frame_data = pipeline_frame_data.get_mut(WindowId::primary()).unwrap();
@@ -173,7 +173,7 @@ pub fn main_render_system(
 }
 
 #[cfg(feature = "example_has_gui")]
-fn set_gui_styles_system(vulkano_windows: Res<VulkanoWinitWindows>) {
+fn set_gui_styles_system(vulkano_windows: Res<VulkanoWindows>) {
     let primary_window = vulkano_windows
         .get_vulkano_window(WindowId::primary())
         .unwrap();
@@ -182,7 +182,7 @@ fn set_gui_styles_system(vulkano_windows: Res<VulkanoWinitWindows>) {
 }
 
 #[cfg(feature = "example_has_gui")]
-fn main_gui_system(vulkano_windows: Res<VulkanoWinitWindows>, diagnostics: Res<Diagnostics>) {
+fn main_gui_system(vulkano_windows: Res<VulkanoWindows>, diagnostics: Res<Diagnostics>) {
     let primary_window = vulkano_windows
         .get_vulkano_window(WindowId::primary())
         .unwrap();
