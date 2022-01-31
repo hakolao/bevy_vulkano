@@ -76,7 +76,7 @@ impl Plugin for MainRenderPlugin {
 /// Insert our render pass at startup
 fn insert_render_pass_system(mut commands: Commands, vulkano_windows: Res<VulkanoWindows>) {
     let vulkano_window = vulkano_windows
-        .get_vulkano_window(WindowId::primary())
+        .get_window_renderer(WindowId::primary())
         .unwrap();
     let queue = vulkano_window.graphics_queue();
     let format = vulkano_window.swapchain_format();
@@ -90,7 +90,7 @@ fn pre_render_setup_system(
     mut pipeline_frame_data: ResMut<WindowSyncData>,
 ) {
     for (window_id, mut frame_data) in pipeline_frame_data.frame_data.iter_mut() {
-        if let Some(vulkano_window) = vulkano_windows.get_vulkano_window_mut(*window_id) {
+        if let Some(vulkano_window) = vulkano_windows.get_window_renderer_mut(*window_id) {
             let before = match vulkano_window.start_frame() {
                 Err(e) => {
                     bevy::log::error!("Failed to start frame: {}", e);
@@ -109,7 +109,7 @@ fn post_render_system(
     mut pipeline_frame_data: ResMut<WindowSyncData>,
 ) {
     for (window_id, frame_data) in pipeline_frame_data.frame_data.iter_mut() {
-        if let Some(vulkano_window) = vulkano_windows.get_vulkano_window_mut(*window_id) {
+        if let Some(vulkano_window) = vulkano_windows.get_window_renderer_mut(*window_id) {
             #[cfg(feature = "example_has_gui")]
             if let Some(after) = frame_data.after.take() {
                 let final_image_view = vulkano_window.final_image();
@@ -134,7 +134,7 @@ pub fn main_render_system(
     mut render_pass_deferred: ResMut<RenderPassDeferred>,
 ) {
     let mut frame_data = pipeline_frame_data.get_mut(WindowId::primary()).unwrap();
-    if let Some(vulkano_window) = vulkano_windows.get_vulkano_window_mut(WindowId::primary()) {
+    if let Some(vulkano_window) = vulkano_windows.get_window_renderer_mut(WindowId::primary()) {
         // We take the before pipeline future leaving None in its place
         if let Some(before_future) = frame_data.before.take() {
             let final_image_view = vulkano_window.final_image();
@@ -175,7 +175,7 @@ pub fn main_render_system(
 #[cfg(feature = "example_has_gui")]
 fn set_gui_styles_system(vulkano_windows: Res<VulkanoWindows>) {
     let primary_window = vulkano_windows
-        .get_vulkano_window(WindowId::primary())
+        .get_window_renderer(WindowId::primary())
         .unwrap();
     let _ctx = primary_window.gui_context();
     // Set styles here... for primary window
@@ -184,7 +184,7 @@ fn set_gui_styles_system(vulkano_windows: Res<VulkanoWindows>) {
 #[cfg(feature = "example_has_gui")]
 fn main_gui_system(vulkano_windows: Res<VulkanoWindows>, diagnostics: Res<Diagnostics>) {
     let primary_window = vulkano_windows
-        .get_vulkano_window(WindowId::primary())
+        .get_window_renderer(WindowId::primary())
         .unwrap();
     let ctx = primary_window.gui_context();
     egui::Area::new("fps")

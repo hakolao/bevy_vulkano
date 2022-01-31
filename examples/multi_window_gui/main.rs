@@ -81,7 +81,7 @@ fn create_new_window_system(
 #[cfg(feature = "example_has_gui")]
 pub fn main_render_system_primary_window(mut vulkano_windows: ResMut<VulkanoWindows>) {
     let vulkano_window = vulkano_windows
-        .get_vulkano_window_mut(WindowId::primary())
+        .get_window_renderer_mut(WindowId::primary())
         .unwrap();
     // Start Frame
     let before = match vulkano_window.start_frame() {

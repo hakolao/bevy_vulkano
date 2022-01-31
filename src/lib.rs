@@ -151,7 +151,7 @@ fn update_on_resize_system(
         changed_window_ids.push(event.id);
     }
     for id in changed_window_ids {
-        if let Some(vulkano_window) = windows.get_vulkano_window_mut(id) {
+        if let Some(vulkano_window) = windows.get_window_renderer_mut(id) {
             // Swap chain will be resized at the beginning of next frame. But user should update pipeline frame data
             vulkano_window.resize();
             // Insert or update pipeline frame data
@@ -411,7 +411,7 @@ pub fn winit_runner_with(mut app: App) {
                         return;
                     };
                     if let Some(vulkano_window) =
-                        vulkano_winit_windows.get_vulkano_window_mut(window_id)
+                        vulkano_winit_windows.get_window_renderer_mut(window_id)
                     {
                         // Update egui with the window event
                         vulkano_window.gui().update(event_wrapper);
