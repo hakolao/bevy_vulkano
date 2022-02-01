@@ -1,7 +1,7 @@
 #[cfg(feature = "example_has_gui")]
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::{prelude::*, window::WindowId};
-use bevy_vulkano::{UnsafeGpuFuture, VulkanoWindows, WindowSyncData};
+use bevy_vulkano::{VulkanoWindows, WindowSyncData};
 use vulkano::{image::ImageAccess, sync::GpuFuture};
 
 use crate::render_pass::{Pass, RenderPassDeferred};
@@ -96,7 +96,7 @@ fn pre_render_setup_system(
                     bevy::log::error!("Failed to start frame: {}", e);
                     None
                 }
-                Ok(f) => Some(UnsafeGpuFuture::new(f)),
+                Ok(f) => Some(f),
             };
             frame_data.before = before;
         }
@@ -113,14 +113,12 @@ fn post_render_system(
             #[cfg(feature = "example_has_gui")]
             if let Some(after) = frame_data.after.take() {
                 let final_image_view = vulkano_window.final_image();
-                let at_end_future = vulkano_window
-                    .gui()
-                    .draw_on_image(after.into_inner(), final_image_view);
+                let at_end_future = vulkano_window.gui().draw_on_image(after, final_image_view);
                 vulkano_window.finish_frame(at_end_future);
             }
             #[cfg(not(feature = "example_has_gui"))]
             if let Some(after) = frame_data.after.take() {
-                vulkano_window.finish_frame(after.into_inner());
+                vulkano_window.finish_frame(after);
             }
         }
     }
@@ -143,12 +141,7 @@ pub fn main_render_system(
             // Camera would be better :)
             let world_to_screen = bevy::math::Mat4::orthographic_rh(-ar, ar, -1.0, 1.0, 0.0, 999.0);
             let mut frame = render_pass_deferred
-                .frame(
-                    [0.0; 4],
-                    before_future.into_inner(),
-                    final_image_view,
-                    world_to_screen,
-                )
+                .frame([0.0; 4], before_future, final_image_view, world_to_screen)
                 .unwrap();
             let mut after_future = None;
             while let Some(pass) = frame.next_pass().unwrap() {
@@ -167,7 +160,7 @@ pub fn main_render_system(
                 .unwrap()
                 .boxed();
             // Update after pipeline future (so post render will know to present frame)
-            frame_data.after = Some(UnsafeGpuFuture::new(after_drawing));
+            frame_data.after = Some(after_drawing);
         }
     }
 }

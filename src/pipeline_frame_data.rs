@@ -1,7 +1,6 @@
 #[allow(unused)]
 use bevy::{utils::HashMap, window::WindowId};
-
-use crate::UnsafeGpuFuture;
+use vulkano::sync::GpuFuture;
 
 #[derive(Default)]
 pub struct WindowSyncData {
@@ -45,6 +44,9 @@ impl WindowSyncData {
 /// Wrapper for useful data for rendering during pipeline
 pub struct SyncData {
     pub window_id: WindowId,
-    pub before: Option<UnsafeGpuFuture>,
-    pub after: Option<UnsafeGpuFuture>,
+    pub before: Option<Box<dyn GpuFuture>>,
+    pub after: Option<Box<dyn GpuFuture>>,
 }
+
+unsafe impl Send for SyncData {}
+unsafe impl Sync for SyncData {}

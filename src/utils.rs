@@ -1,9 +1,6 @@
-use std::{
-    cell::UnsafeCell,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 use image::RgbaImage;
@@ -15,25 +12,8 @@ use vulkano::{
         ImageViewAbstract, ImmutableImage, MipmapsCount, StorageImage, SwapchainImage,
     },
     instance::InstanceExtensions,
-    sync::GpuFuture,
 };
 use winit::window::Window;
-
-/// With this we can extend `Send` and `Sync` on `dyn GpuFuture`
-pub struct UnsafeGpuFuture(UnsafeCell<Box<dyn GpuFuture>>);
-
-impl UnsafeGpuFuture {
-    pub fn new(future: Box<dyn GpuFuture>) -> UnsafeGpuFuture {
-        UnsafeGpuFuture(UnsafeCell::new(future))
-    }
-
-    pub fn into_inner(self) -> Box<dyn GpuFuture> {
-        self.0.into_inner()
-    }
-}
-
-unsafe impl Send for UnsafeGpuFuture {}
-unsafe impl Sync for UnsafeGpuFuture {}
 
 /// Final render target onto which whole app is rendered
 pub type FinalImageView = Arc<ImageView<SwapchainImage<Window>>>;
