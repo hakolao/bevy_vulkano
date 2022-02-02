@@ -67,9 +67,7 @@ fn update_window_title_system(vulkano_windows: Res<VulkanoWindows>, time: ResMut
 
 /// Creates our simulation pipeline & render pipeline
 fn create_pipelines(mut commands: Commands, vulkano_windows: Res<VulkanoWindows>) {
-    let primary_window = vulkano_windows
-        .get_window_renderer(WindowId::primary())
-        .unwrap();
+    let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
     // Create compute pipeline to simulate game of life
     let game_of_life_pipeline =
         GameOfLifeComputePipeline::new(primary_window.graphics_queue(), [512, 512]);
@@ -119,9 +117,7 @@ fn game_of_life_pipeline_system(
     mut game_of_life: ResMut<GameOfLifeComputePipeline>,
     mut place_over_frame: ResMut<RenderPassPlaceOverFrame>,
 ) {
-    let primary_window = vulkano_windows
-        .get_window_renderer_mut(WindowId::primary())
-        .unwrap();
+    let primary_window = vulkano_windows.get_primary_window_renderer_mut().unwrap();
 
     // Start frame
     let before = match primary_window.start_frame() {

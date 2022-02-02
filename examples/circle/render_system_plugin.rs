@@ -75,9 +75,7 @@ impl Plugin for MainRenderPlugin {
 
 /// Insert our render pass at startup
 fn insert_render_pass_system(mut commands: Commands, vulkano_windows: Res<VulkanoWindows>) {
-    let vulkano_window = vulkano_windows
-        .get_window_renderer(WindowId::primary())
-        .unwrap();
+    let vulkano_window = vulkano_windows.get_primary_window_renderer().unwrap();
     let queue = vulkano_window.graphics_queue();
     let format = vulkano_window.swapchain_format();
     let deferred_pass = RenderPassDeferred::new(queue, format).unwrap();
@@ -132,7 +130,7 @@ pub fn main_render_system(
     mut render_pass_deferred: ResMut<RenderPassDeferred>,
 ) {
     let mut frame_data = pipeline_frame_data.get_mut(WindowId::primary()).unwrap();
-    if let Some(vulkano_window) = vulkano_windows.get_window_renderer_mut(WindowId::primary()) {
+    if let Some(vulkano_window) = vulkano_windows.get_primary_window_renderer_mut() {
         // We take the before pipeline future leaving None in its place
         if let Some(before_future) = frame_data.before.take() {
             let final_image_view = vulkano_window.final_image();
@@ -167,18 +165,14 @@ pub fn main_render_system(
 
 #[cfg(feature = "example_has_gui")]
 fn set_gui_styles_system(vulkano_windows: Res<VulkanoWindows>) {
-    let primary_window = vulkano_windows
-        .get_window_renderer(WindowId::primary())
-        .unwrap();
+    let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
     let _ctx = primary_window.gui_context();
     // Set styles here... for primary window
 }
 
 #[cfg(feature = "example_has_gui")]
 fn main_gui_system(vulkano_windows: Res<VulkanoWindows>, diagnostics: Res<Diagnostics>) {
-    let primary_window = vulkano_windows
-        .get_window_renderer(WindowId::primary())
-        .unwrap();
+    let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
     let ctx = primary_window.gui_context();
     egui::Area::new("fps")
         .fixed_pos(egui::pos2(10.0, 10.0))

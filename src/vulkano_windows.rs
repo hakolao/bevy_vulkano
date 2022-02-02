@@ -149,6 +149,18 @@ impl VulkanoWindows {
         )
     }
 
+    pub fn get_primary_window_renderer_mut(&mut self) -> Option<&mut VulkanoWindowRenderer> {
+        self.get_window_renderer_mut(WindowId::primary())
+    }
+
+    pub fn get_primary_window_renderer(&self) -> Option<&VulkanoWindowRenderer> {
+        self.get_window_renderer(WindowId::primary())
+    }
+
+    pub fn get_primary_winit_window(&self) -> Option<&winit::window::Window> {
+        self.get_winit_window(WindowId::primary())
+    }
+
     pub fn get_window_renderer_mut(&mut self, id: WindowId) -> Option<&mut VulkanoWindowRenderer> {
         self.window_id_to_winit
             .get(&id)
