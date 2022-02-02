@@ -38,7 +38,6 @@ unsafe impl Send for VulkanoContext {}
 
 impl VulkanoContext {
     pub fn new(config: &VulkanoWinitConfig) -> Self {
-        bevy::log::info!("Creating RenderContext");
         let instance = create_vk_instance(config.instance_extensions, &config.layers);
         let debug_callback = create_vk_debug_callback(&instance);
         // Get desired device
@@ -208,7 +207,7 @@ pub fn create_vk_instance(
             Err(e) => {
                 match e {
                     InstanceCreationError::LoadingError(le) => {
-                        error!("{:?}, Did you install vulkanSDK from https://vulkan.lunarg.com/sdk/home?", le);
+                        bevy::log::error!("{:?}, Did you install vulkanSDK from https://vulkan.lunarg.com/sdk/home?", le);
                         Err(le).expect("")
                     }
                     _ => Err(e).expect("Failed to create instance"),
