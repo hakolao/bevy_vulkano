@@ -1,15 +1,17 @@
 # bevy_vulkano
 
+[![Crates.io](https://img.shields.io/crates/v/bevy_vulkano.svg)](https://crates.io/crates/bevy_vulkano)
 ![Apache](https://img.shields.io/badge/license-Apache-blue.svg)
+![CI](https://github.com/hakolao/bevy_vulkano/workflows/CI/badge.svg)
 
 This plugin replaces core loop & rendering in [Bevy](https://github.com/bevyengine/bevy) with [Vulkano](https://github.com/vulkano-rs/vulkano) backend.
-Basically this allows you to be fully in control of your render pipelines with Vulkano without having to bother yourself with
+Basically this allows you to be fully in control of your render pipelines with Vulkano without having to bother yourself with engine
 architecture much. Just roll your pipelines and have fun.
 
 This makes it extremely easy to do following with Vulkano:
 - Windowless Apps
 - Multiple Windows
-- 
+- Event handling
 
 The plugin contains functionality for resizing, multiple windows & utility for beginning and ending the frame.
 However, you'll need to do everything in between yourself. A good way to get started is to look at the examples.
@@ -61,7 +63,7 @@ default-features = false
 features = []
 
 [dependencies.bevy_vulkano]
-version = "*"
+version = "0.1.0"
 default-features = false
 # gui or no gui...
 features = ["gui"]
@@ -72,8 +74,6 @@ egui_winit_vulkano = "0.15"
 # For render pipelines etc.
 vulkano-shaders = "0.28"
 vulkano = "0.28"
-vulkano-win = "0.28"
-vulkano-win = "0.28"
 
 ```
 
@@ -87,7 +87,4 @@ cargo run --example windowless_compute
 
 ### Contributing
 
-ToDo:
-- [ ] Update Cargo.toml to new crates once Vulkano 0.28 is out...
-- [ ] Publish as a crate
-- [ ] Github action workflow
+Feel free to open a PR to improve or fix anything that you see would be useful.

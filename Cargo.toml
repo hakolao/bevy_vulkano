@@ -18,19 +18,15 @@ gui = ["egui_winit_vulkano"]
 
 [dependencies]
 egui = "0.16.0"
-# Waiting for vulkano 0.28
-vulkano = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1" }
+vulkano = "0.28"
 raw-window-handle = { version = "0.4" }
 winit = "0.26.0"
-# Waiting for vulkano 0.28
-egui_winit_vulkano = { git = "https://github.com/hakolao/egui_winit_vulkano", branch = "prepare-for-vulkano-0.28", optional = true }
+egui_winit_vulkano = "0.15"
 image = "0.23.14"
 approx = "0.5.1"
 
-# Waiting for vulkano 0.28
 [dependencies.vulkano-win]
-git = "https://github.com/vulkano-rs/vulkano.git"
-rev = "d36bba1"
+version =  "0.28"
 default-features = false
 features = ["raw-window-handle_"]
 
