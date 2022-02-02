@@ -37,5 +37,4 @@ features = []
 
 [dev-dependencies]
 anyhow = "1.0.40"
-# Waiting for vulkano 0.28 (Needed to not clash winit 0.26 from bevy)
-vulkano-shaders = { git = "https://github.com/vulkano-rs/vulkano.git", rev = "d36bba1" }
+vulkano-shaders = "0.28"
