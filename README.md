@@ -70,7 +70,6 @@ features = ["gui"]
 
 # For gui
 egui = "0.16.0"
-egui_winit_vulkano = "0.15"
 # For render pipelines etc.
 vulkano-shaders = "0.28"
 vulkano = "0.28"
