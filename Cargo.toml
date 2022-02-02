@@ -38,3 +38,4 @@ features = []
 [dev-dependencies]
 anyhow = "1.0.40"
 vulkano-shaders = "0.28"
+rand = "0.8.4"

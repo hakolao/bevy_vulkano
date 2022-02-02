@@ -46,7 +46,8 @@ fn main() {
         })
         .add_plugins(PluginBundle)
         .add_system(exit_on_esc_system)
-        .add_system(create_new_window_system)
+        .add_startup_system(create_new_window_system)
+        .add_system(create_new_window_on_space_system)
         .add_system_set_to_stage(
             // Add render system after PostUpdate
             CoreStage::PostUpdate,
@@ -57,9 +58,24 @@ fn main() {
         .run();
 }
 
+#[cfg(feature = "example_has_gui")]
+fn create_new_window_system(mut create_window_events: EventWriter<CreateWindow>) {
+    let window_id = WindowId::new();
+    create_window_events.send(CreateWindow {
+        id: window_id,
+        descriptor: WindowDescriptor {
+            width: 512.,
+            height: 512.,
+            vsync: true,
+            title: "Secondary window".to_string(),
+            ..Default::default()
+        },
+    });
+}
+
 /// Adds new window when space is pressed
 #[cfg(feature = "example_has_gui")]
-fn create_new_window_system(
+fn create_new_window_on_space_system(
     keys: Res<Input<KeyCode>>,
     mut create_window_events: EventWriter<CreateWindow>,
 ) {
