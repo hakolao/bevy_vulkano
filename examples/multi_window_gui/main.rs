@@ -121,10 +121,7 @@ pub fn main_render_system_primary_window(mut vulkano_windows: ResMut<VulkanoWind
 
 #[cfg(feature = "example_has_gui")]
 pub fn main_render_system_secondary_window(mut vulkano_windows: ResMut<VulkanoWindows>) {
-    let primary_window_id = vulkano_windows
-        .get_winit_window(WindowId::primary())
-        .unwrap()
-        .id();
+    let primary_window_id = vulkano_windows.get_primary_winit_window().unwrap().id();
     for (window_id, vulkano_window) in vulkano_windows.windows.iter_mut() {
         // Skip primary window
         if *window_id == primary_window_id {

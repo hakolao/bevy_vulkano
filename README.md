@@ -52,6 +52,97 @@ fn main() {
 }
 ```
 
+### Creating a pipeline
+
+```rust
+/// Creates a render pipeline. Add this system with app.add_startup_system(create_pipelines).
+fn create_pipelines_system(mut commands: Commands, vulkano_windows: Res<VulkanoWindows>) {
+    let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
+    // Create your render pass & pipelines (MyRenderPass could contain your pipelines, e.g. draw_circle)
+    let my_pipeline = YourPipeline::new(
+        primary_window.graphics_queue(),
+        primary_window.swapchain_format(),
+    );
+    // Insert as a resource
+    commands.insert_resource(my_pipeline);
+}
+```
+
+### Rendering system
+
+```rust
+
+/// This system should be added either at `CoreStage::PostUpdate` or `CoreStage::Last`. You could also create your own
+/// render stage and place it after `CoreStage::Update`.
+fn my_pipeline_render_system(
+    mut vulkano_windows: ResMut<VulkanoWindows>,
+    mut pipeline: ResMut<YourPipeline>,
+) {
+    let primary_window = vulkano_windows.get_primary_window_renderer_mut().unwrap();
+    // Start frame
+    let before = match primary_window.start_frame() {
+        Err(e) => {
+            bevy::log::error!("Failed to start frame: {}", e);
+            return;
+        }
+        Ok(f) => f,
+    };
+
+    // Access the swapchain image directly
+    let final_image = primary_window.final_image();
+    // Draw your pipeline
+    let after_your_pipeline = pipeline.draw(final_image);
+    
+    // Finish Frame by passing your last future
+    primary_window.finish_frame(after_your_pipeline);
+}
+```
+
+### Separating render systems
+
+To allow parallel render systems for your pipelines: Splitting your rendering to smaller systems, you could create
+`pre_render_setup_system` & `post_render_setup_system`. Which can update the futures pre and post render.
+`PipelineSyncData` would be used to update `after` and `before` futures during the frame.
+
+Your render system in between should update the `after` future.
+
+```rust
+/// Starts frame, updates before pipeline future & final image view
+pub fn pre_render_setup_system(
+    mut vulkano_windows: ResMut<VulkanoWindows>,
+    mut pipeline_frame_data: ResMut<PipelineSyncData>,
+) {
+    let vulkano_renderer = vulkano_windows
+        .get_primary_window_renderer_mut()
+        .unwrap();
+    let sync_data = pipeline_frame_data.get_primary_mut().unwrap();
+    let before = match vulkano_renderer.start_frame() {
+        Err(e) => {
+            bevy::log::error!("Failed to start frame: {}", e);
+            None
+        }
+        Ok(f) => Some(f),
+    };
+    sync_data.before = before;
+}
+
+/// If rendering was successful, draw gui & finish frame
+pub fn post_render_system(
+    mut vulkano_windows: ResMut<VulkanoWindows>,
+    mut pipeline_frame_data: ResMut<PipelineSyncData>,
+) {
+    let vulkano_window = vulkano_windows
+        .get_primary_window_renderer_mut()
+        .unwrap();
+    let sync_data = pipeline_frame_data.get_primary_mut().unwrap();
+    if let Some(after) = sync_data.after.take() {
+        let final_image_view = vulkano_window.final_image();
+        let at_end_future = vulkano_window.gui().draw_on_image(after, final_image_view);
+        vulkano_window.finish_frame(at_end_future);
+    }
+}
+```
+
 ## Dependencies
 
 Add following to your `Cargo.toml`:
