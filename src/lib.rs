@@ -10,7 +10,7 @@ Pretty much the same as bevy_winit, but organized to use vulkano renderer backen
 This allows you to create your own pipelines for rendering.
  */
 mod converters;
-mod pipeline_frame_data;
+mod pipeline_sync_data;
 mod utils;
 mod vulkano_context;
 mod vulkano_window_renderer;
@@ -31,7 +31,7 @@ use bevy::{
         WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
     },
 };
-pub use pipeline_frame_data::*;
+pub use pipeline_sync_data::*;
 pub use utils::*;
 use vulkano::{
     device::{DeviceExtensions, Features},
@@ -114,7 +114,7 @@ impl Plugin for VulkanoWinitPlugin {
             exit_on_close: false,
         })
         .init_resource::<VulkanoWindows>()
-        .init_resource::<WindowSyncData>()
+        .init_resource::<PipelineSyncData>()
         .insert_resource(vulkano_context);
 
         // Create initial window
@@ -132,7 +132,7 @@ impl Plugin for VulkanoWinitPlugin {
 }
 
 fn update_on_resize_system(
-    mut pipeline_data: ResMut<WindowSyncData>,
+    mut pipeline_data: ResMut<PipelineSyncData>,
     mut windows: ResMut<VulkanoWindows>,
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -759,7 +759,7 @@ pub fn exit_on_window_close_system(
     mut app_exit_events: EventWriter<AppExit>,
     mut window_close_requested_events: EventReader<WindowCloseRequested>,
     mut windows: ResMut<VulkanoWindows>,
-    mut pipeline_data: ResMut<WindowSyncData>,
+    mut pipeline_data: ResMut<PipelineSyncData>,
 ) {
     for event in window_close_requested_events.iter() {
         // Close app on primary window exit

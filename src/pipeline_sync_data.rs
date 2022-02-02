@@ -2,26 +2,27 @@
 use bevy::{utils::HashMap, window::WindowId};
 use vulkano::sync::GpuFuture;
 
+/// Contains gpu future data per window to be used in Vulkano pipeline synchronization
 #[derive(Default)]
-pub struct WindowSyncData {
-    pub frame_data: HashMap<WindowId, SyncData>,
+pub struct PipelineSyncData {
+    pub data_per_window: HashMap<WindowId, SyncData>,
 }
 
-impl WindowSyncData {
+impl PipelineSyncData {
     pub fn add(&mut self, data: SyncData) {
-        self.frame_data.insert(data.window_id, data);
+        self.data_per_window.insert(data.window_id, data);
     }
 
     pub fn remove(&mut self, id: WindowId) {
-        self.frame_data.remove(&id);
+        self.data_per_window.remove(&id);
     }
 
     pub fn get(&self, id: WindowId) -> Option<&SyncData> {
-        self.frame_data.get(&id)
+        self.data_per_window.get(&id)
     }
 
     pub fn get_mut(&mut self, id: WindowId) -> Option<&mut SyncData> {
-        self.frame_data.get_mut(&id)
+        self.data_per_window.get_mut(&id)
     }
 
     pub fn get_primary(&self) -> Option<&SyncData> {
@@ -33,11 +34,11 @@ impl WindowSyncData {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &SyncData> {
-        self.frame_data.values()
+        self.data_per_window.values()
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SyncData> {
-        self.frame_data.values_mut()
+        self.data_per_window.values_mut()
     }
 }
 

@@ -1,7 +1,7 @@
 #[cfg(feature = "example_has_gui")]
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::{prelude::*, window::WindowId};
-use bevy_vulkano::{VulkanoWindows, WindowSyncData};
+use bevy_vulkano::{PipelineSyncData, VulkanoWindows};
 use vulkano::{image::ImageAccess, sync::GpuFuture};
 
 use crate::render_pass::{Pass, RenderPassDeferred};
@@ -87,9 +87,9 @@ fn insert_render_pass_system(mut commands: Commands, vulkano_windows: Res<Vulkan
 /// Starts frame, updates before pipeline future & final image view
 fn pre_render_setup_system(
     mut vulkano_windows: ResMut<VulkanoWindows>,
-    mut pipeline_frame_data: ResMut<WindowSyncData>,
+    mut pipeline_frame_data: ResMut<PipelineSyncData>,
 ) {
-    for (window_id, mut frame_data) in pipeline_frame_data.frame_data.iter_mut() {
+    for (window_id, mut frame_data) in pipeline_frame_data.data_per_window.iter_mut() {
         if let Some(vulkano_window) = vulkano_windows.get_window_renderer_mut(*window_id) {
             let before = match vulkano_window.start_frame() {
                 Err(e) => {
@@ -106,9 +106,9 @@ fn pre_render_setup_system(
 /// If rendering was successful, draw gui & finish frame
 fn post_render_system(
     mut vulkano_windows: ResMut<VulkanoWindows>,
-    mut pipeline_frame_data: ResMut<WindowSyncData>,
+    mut pipeline_frame_data: ResMut<PipelineSyncData>,
 ) {
-    for (window_id, frame_data) in pipeline_frame_data.frame_data.iter_mut() {
+    for (window_id, frame_data) in pipeline_frame_data.data_per_window.iter_mut() {
         if let Some(vulkano_window) = vulkano_windows.get_window_renderer_mut(*window_id) {
             #[cfg(feature = "example_has_gui")]
             if let Some(after) = frame_data.after.take() {
@@ -128,7 +128,7 @@ fn post_render_system(
 // You could render different windows in their own systems...
 pub fn main_render_system(
     mut vulkano_windows: ResMut<VulkanoWindows>,
-    mut pipeline_frame_data: ResMut<WindowSyncData>,
+    mut pipeline_frame_data: ResMut<PipelineSyncData>,
     mut render_pass_deferred: ResMut<RenderPassDeferred>,
 ) {
     let mut frame_data = pipeline_frame_data.get_mut(WindowId::primary()).unwrap();
