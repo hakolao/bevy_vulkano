@@ -14,7 +14,7 @@ use vulkano::{
     sync,
     sync::{FlushError, GpuFuture},
 };
-use vulkano_win::create_vk_surface_from_handle;
+use vulkano_win::create_vk_surface;
 use winit::window::Window;
 
 use crate::{
@@ -50,27 +50,8 @@ impl VulkanoWindowRenderer {
         window: winit::window::Window,
         descriptor: &WindowDescriptor,
     ) -> VulkanoWindowRenderer {
-        // Basically a copy from vulkano-winit to that we do get the CAMetalLayer
-        #[cfg(target_os = "macos")]
-        unsafe {
-            use cocoa::appkit::{NSView, NSWindow};
-            use winit::platform::macos::WindowExtMacOS;
-
-            let wnd: cocoa::base::id = std::mem::transmute(window.ns_window());
-            let layer = metal::CoreAnimationLayer::new();
-
-            layer.set_edge_antialiasing_mask(0);
-            layer.set_presents_with_transaction(false);
-            layer.remove_all_animations();
-
-            let view = wnd.contentView();
-
-            layer.set_contents_scale(view.backingScaleFactor());
-            view.setLayer(std::mem::transmute(layer.as_ref()));
-            view.setWantsLayer(objc::runtime::YES);
-        }
         // Create rendering surface from window
-        let surface = create_vk_surface_from_handle(window, vulkano_context.instance()).unwrap();
+        let surface = create_vk_surface(window, vulkano_context.instance()).unwrap();
 
         // Create swap chain & frame(s) to which we'll render
         let (swap_chain, final_views) = vulkano_context.create_swap_chain(

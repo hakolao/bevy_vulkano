@@ -19,27 +19,17 @@ gui = ["egui_winit_vulkano"]
 [dependencies]
 egui = "0.16.0"
 vulkano = "0.28"
+vulkano-win = "0.28"
 egui_winit_vulkano = { version = "0.15", optional = true }
 raw-window-handle = { version = "0.4" }
 winit = "0.26.0"
 image = "0.23.14"
 approx = "0.5.1"
 
-[dependencies.vulkano-win]
-version = "0.28"
-default-features = false
-features = ["raw-window-handle_"]
-
 [dependencies.bevy]
 version = "0.6"
 default-features = false
 features = []
-
-# For window surface on macos to work with vulkano
-[target.'cfg(target_os = "macos")'.dependencies]
-metal = { version = "0.18.0" }
-cocoa = { version = "0.20.0" }
-objc = { version = "0.2.7" }
 
 [dev-dependencies]
 anyhow = "1.0.40"

@@ -551,12 +551,9 @@ dependencies = [
  "anyhow",
  "approx",
  "bevy",
- "cocoa 0.20.2",
  "egui",
  "egui_winit_vulkano",
  "image",
- "metal 0.18.0",
- "objc",
  "rand",
  "raw-window-handle",
  "vulkano",
@@ -2480,8 +2477,12 @@ version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8780d7a455a8ab042793884dcbbba280d082abc4703b1288b8e771f80b79033a"
 dependencies = [
+ "cocoa 0.20.2",
+ "metal 0.18.0",
+ "objc",
  "raw-window-handle",
  "vulkano",
+ "winit",
 ]
 
 [[package]]
