@@ -70,6 +70,10 @@ pub struct VulkanoWinitConfig {
     pub device_extensions: DeviceExtensions,
     pub features: Features,
     pub layers: Vec<&'static str>,
+    /// Whether the image gets cleared each frame by gui integration.
+    /// Default is true, thus you need to clear the image you intend to draw gui on
+    #[cfg(feature = "gui")]
+    pub is_gui_overlay: bool,
 }
 
 impl Default for VulkanoWinitConfig {
@@ -87,6 +91,8 @@ impl Default for VulkanoWinitConfig {
             },
             features: Features::none(),
             layers: vec![],
+            #[cfg(feature = "gui")]
+            is_gui_overlay: true,
         }
     }
 }
@@ -422,7 +428,7 @@ pub fn winit_runner_with(mut app: App) {
                         vulkano_winit_windows.get_window_renderer_mut(window_id)
                     {
                         // Update egui with the window event. If false, we should skip the event in bevy
-                        vulkano_window.gui().update(window_event);
+                        skip_window_event = vulkano_window.gui().update(window_event);
                     }
                 }
                 _ => (),
@@ -732,6 +738,7 @@ fn handle_create_window_events(
     create_window_event_reader: &mut ManualEventReader<CreateWindow>,
 ) {
     let world = world.cell();
+    let vulkano_config = world.get_resource::<VulkanoWinitConfig>().unwrap();
     let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
     let mut vulkano_winit_windows = world.get_resource_mut::<VulkanoWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
@@ -743,6 +750,7 @@ fn handle_create_window_events(
             create_window_event.id,
             &create_window_event.descriptor,
             &vulkano_context,
+            &vulkano_config,
         );
         windows.add(window);
         window_created_events.send(WindowCreated {
@@ -753,6 +761,7 @@ fn handle_create_window_events(
 
 fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
     let world = world.cell();
+    let vulkano_config = world.get_resource::<VulkanoWinitConfig>().unwrap();
     let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
     let mut vulkano_winit_windows = world.get_resource_mut::<VulkanoWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
@@ -764,6 +773,7 @@ fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
             create_window_event.id,
             &create_window_event.descriptor,
             &vulkano_context,
+            &vulkano_config,
         );
         windows.add(window);
         window_created_events.send(WindowCreated {

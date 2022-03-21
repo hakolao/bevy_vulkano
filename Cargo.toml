@@ -1,6 +1,6 @@
 [package]
 name = "bevy_vulkano"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Okko Hakola <okkohakola@gmail.com>"]
 description = "Vulkano Backend for Bevy"
@@ -20,8 +20,7 @@ gui = ["egui_winit_vulkano"]
 vulkano = "0.29.0"
 vulkano-win = "0.29.0"
 vulkano-shaders = "0.29.0"
-#egui_winit_vulkano = { version = "0.16", optional = true }
-egui_winit_vulkano = { git = "https://github.com/hakolao/egui_winit_vulkano", branch = "update-vulkano-0.29-and-egui-0.17", optional = true }
+egui_winit_vulkano = { version = "0.16", optional = true }
 raw-window-handle = { version = "0.4" }
 winit = "0.26.0"
 image = "0.23.14"

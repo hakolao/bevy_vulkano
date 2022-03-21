@@ -19,7 +19,7 @@ use winit::window::Window;
 
 use crate::{
     create_device_image, vulkano::swapchain::SwapchainCreateInfo, DeviceImageView, FinalImageView,
-    VulkanoContext, DEFAULT_IMAGE_FORMAT,
+    VulkanoContext, VulkanoWinitConfig, DEFAULT_IMAGE_FORMAT,
 };
 
 pub struct VulkanoWindowRenderer {
@@ -50,6 +50,7 @@ impl VulkanoWindowRenderer {
         vulkano_context: &VulkanoContext,
         window: winit::window::Window,
         descriptor: &WindowDescriptor,
+        _vulkano_config: &VulkanoWinitConfig,
     ) -> VulkanoWindowRenderer {
         // Create rendering surface from window
         let surface = create_surface_from_winit(window, vulkano_context.instance()).unwrap();
@@ -67,7 +68,11 @@ impl VulkanoWindowRenderer {
 
         let previous_frame_end = Some(sync::now(vulkano_context.device()).boxed());
         #[cfg(feature = "gui")]
-        let gui = Gui::new(surface.clone(), vulkano_context.graphics_queue(), true);
+        let gui = Gui::new(
+            surface.clone(),
+            vulkano_context.graphics_queue(),
+            _vulkano_config.is_gui_overlay,
+        );
 
         VulkanoWindowRenderer {
             surface,

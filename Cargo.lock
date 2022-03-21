@@ -613,7 +613,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_vulkano"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "approx",
@@ -1227,7 +1227,8 @@ dependencies = [
 [[package]]
 name = "egui_winit_vulkano"
 version = "0.16.0"
-source = "git+https://github.com/hakolao/egui_winit_vulkano?branch=update-vulkano-0.29-and-egui-0.17#3e13dd0d24a37913e25fa3f3faf657b21ac4b9ab"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fe1568f69e6e760dc0db0cdf8c9ab019c7fc643857ee8c42ba9a1fe5d44b2f6"
 dependencies = [
  "ahash 0.7.6",
  "bytemuck",
