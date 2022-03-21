@@ -8,8 +8,8 @@ use vulkano::{
     },
     device::{Device, Queue},
     format::Format,
-    image::{ImageAccess, ImageViewAbstract},
-    render_pass::{Framebuffer, RenderPass, Subpass},
+    image::ImageViewAbstract,
+    render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
     sync::GpuFuture,
 };
 
@@ -88,11 +88,10 @@ impl RenderPassDeferred {
     where
         F: GpuFuture + 'static,
     {
-        let _img_dims = final_image.image().dimensions().width_height();
-        // Update other buffers sizes here if img dims changed...
-        let framebuffer = Framebuffer::start(self.render_pass.clone())
-            .add(final_image)?
-            .build()?;
+        let framebuffer = Framebuffer::new(self.render_pass.clone(), FramebufferCreateInfo {
+            attachments: vec![final_image],
+            ..Default::default()
+        })?;
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
             self.gfx_queue.device().clone(),
             self.gfx_queue.family(),
@@ -210,8 +209,7 @@ impl<'f, 's: 'f> DrawPass<'f, 's> {
     #[allow(unused)]
     #[inline]
     pub fn viewport_dimensions(&self) -> [u32; 2] {
-        let dims = self.frame.framebuffer.dimensions();
-        [dims[0], dims[1]]
+        self.frame.framebuffer.extent()
     }
 
     #[inline]
@@ -225,9 +223,9 @@ impl<'f, 's: 'f> DrawPass<'f, 's> {
         radius: f32,
         color: [f32; 4],
     ) -> Result<()> {
-        let dims = self.frame.framebuffer.dimensions();
+        let dims = self.frame.framebuffer.extent();
         let cb = self.frame.system.pipelines.circle.draw(
-            [dims[0], dims[1]],
+            dims,
             self.world_to_screen(),
             pos,
             radius,

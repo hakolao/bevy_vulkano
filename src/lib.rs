@@ -31,13 +31,18 @@ use bevy::{
         WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
     },
 };
+#[cfg(feature = "gui")]
+pub use egui_winit_vulkano;
 pub use pipeline_sync_data::*;
 pub use utils::*;
+pub use vulkano;
 use vulkano::{
     device::{DeviceExtensions, Features},
     instance::InstanceExtensions,
 };
 pub use vulkano_context::*;
+pub use vulkano_shaders;
+pub use vulkano_win;
 pub use vulkano_window_renderer::*;
 pub use vulkano_windows::*;
 use winit::{
@@ -390,13 +395,16 @@ pub fn winit_runner_with(mut app: App) {
             }
         }
 
+        #[cfg(feature = "gui")]
+        let mut skip_window_event = false;
+        #[cfg(not(feature = "gui"))]
+        let skip_window_event = false;
         // Update gui with winit event
         #[cfg(feature = "gui")]
         {
-            let event_wrapper = &event;
-            match &event_wrapper {
+            match &event {
                 event::Event::WindowEvent {
-                    event: _event,
+                    event: window_event,
                     window_id: winit_window_id,
                     ..
                 } => {
@@ -413,26 +421,28 @@ pub fn winit_runner_with(mut app: App) {
                     if let Some(vulkano_window) =
                         vulkano_winit_windows.get_window_renderer_mut(window_id)
                     {
-                        // Update egui with the window event
-                        vulkano_window.gui().update(event_wrapper);
+                        // Update egui with the window event. If false, we should skip the event in bevy
+                        vulkano_window.gui().update(window_event);
                     }
                 }
                 _ => (),
             }
         }
 
-        // Main events...
-        match event {
-            event::Event::WindowEvent {
-                event,
-                window_id: winit_window_id,
-                ..
-            } => {
-                let world = app.world.cell();
-                let vulkano_winit_windows = world.get_resource_mut::<VulkanoWindows>().unwrap();
-                let mut windows = world.get_resource_mut::<Windows>().unwrap();
-                let window_id =
-                    if let Some(window_id) = vulkano_winit_windows.get_window_id(winit_window_id) {
+        if !skip_window_event {
+            // Main events...
+            match event {
+                event::Event::WindowEvent {
+                    event,
+                    window_id: winit_window_id,
+                    ..
+                } => {
+                    let world = app.world.cell();
+                    let vulkano_winit_windows = world.get_resource_mut::<VulkanoWindows>().unwrap();
+                    let mut windows = world.get_resource_mut::<Windows>().unwrap();
+                    let window_id = if let Some(window_id) =
+                        vulkano_winit_windows.get_window_id(winit_window_id)
+                    {
                         window_id
                     } else {
                         warn!(
@@ -442,264 +452,271 @@ pub fn winit_runner_with(mut app: App) {
                         return;
                     };
 
-                let window = if let Some(window) = windows.get_mut(window_id) {
-                    window
-                } else {
-                    warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
-                    return;
-                };
-
-                match event {
-                    WindowEvent::Resized(size) => {
-                        window.update_actual_size_from_backend(size.width, size.height);
-                        let mut resize_events =
-                            world.get_resource_mut::<Events<WindowResized>>().unwrap();
-                        resize_events.send(WindowResized {
-                            id: window_id,
-                            width: window.width(),
-                            height: window.height(),
-                        });
-                    }
-                    WindowEvent::CloseRequested => {
-                        let mut window_close_requested_events = world
-                            .get_resource_mut::<Events<WindowCloseRequested>>()
-                            .unwrap();
-                        window_close_requested_events.send(WindowCloseRequested {
-                            id: window_id,
-                        });
-                    }
-                    WindowEvent::KeyboardInput {
-                        ref input, ..
-                    } => {
-                        let mut keyboard_input_events =
-                            world.get_resource_mut::<Events<KeyboardInput>>().unwrap();
-                        keyboard_input_events.send(converters::convert_keyboard_input(input));
-                    }
-                    WindowEvent::CursorMoved {
-                        position, ..
-                    } => {
-                        let mut cursor_moved_events =
-                            world.get_resource_mut::<Events<CursorMoved>>().unwrap();
-                        let winit_window =
-                            vulkano_winit_windows.get_winit_window(window_id).unwrap();
-                        let inner_size = winit_window.inner_size();
-
-                        // move origin to bottom left
-                        let y_position = inner_size.height as f64 - position.y;
-
-                        let physical_position = DVec2::new(position.x, y_position);
+                    let window = if let Some(window) = windows.get_mut(window_id) {
                         window
-                            .update_cursor_physical_position_from_backend(Some(physical_position));
+                    } else {
+                        warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
+                        return;
+                    };
 
-                        cursor_moved_events.send(CursorMoved {
-                            id: window_id,
-                            position: (physical_position / window.scale_factor()).as_vec2(),
-                        });
-                    }
-                    WindowEvent::CursorEntered {
-                        ..
-                    } => {
-                        let mut cursor_entered_events =
-                            world.get_resource_mut::<Events<CursorEntered>>().unwrap();
-                        cursor_entered_events.send(CursorEntered {
-                            id: window_id,
-                        });
-                    }
-                    WindowEvent::CursorLeft {
-                        ..
-                    } => {
-                        let mut cursor_left_events =
-                            world.get_resource_mut::<Events<CursorLeft>>().unwrap();
-                        window.update_cursor_physical_position_from_backend(None);
-                        cursor_left_events.send(CursorLeft {
-                            id: window_id,
-                        });
-                    }
-                    WindowEvent::MouseInput {
-                        state,
-                        button,
-                        ..
-                    } => {
-                        let mut mouse_button_input_events = world
-                            .get_resource_mut::<Events<MouseButtonInput>>()
-                            .unwrap();
-                        mouse_button_input_events.send(MouseButtonInput {
-                            button: converters::convert_mouse_button(button),
-                            state: converters::convert_element_state(state),
-                        });
-                    }
-                    WindowEvent::MouseWheel {
-                        delta, ..
-                    } => match delta {
-                        event::MouseScrollDelta::LineDelta(x, y) => {
-                            let mut mouse_wheel_input_events =
-                                world.get_resource_mut::<Events<MouseWheel>>().unwrap();
-                            mouse_wheel_input_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Line,
-                                x,
-                                y,
-                            });
-                        }
-                        event::MouseScrollDelta::PixelDelta(p) => {
-                            let mut mouse_wheel_input_events =
-                                world.get_resource_mut::<Events<MouseWheel>>().unwrap();
-                            mouse_wheel_input_events.send(MouseWheel {
-                                unit: MouseScrollUnit::Pixel,
-                                x: p.x as f32,
-                                y: p.y as f32,
-                            });
-                        }
-                    },
-                    WindowEvent::Touch(touch) => {
-                        let mut touch_input_events =
-                            world.get_resource_mut::<Events<TouchInput>>().unwrap();
-
-                        let mut location = touch.location.to_logical(window.scale_factor());
-
-                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
-                        // bottom
-                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            let window_height = windows.get_primary().unwrap().height();
-                            location.y = window_height - location.y;
-                        }
-                        touch_input_events.send(converters::convert_touch_input(touch, location));
-                    }
-                    WindowEvent::ReceivedCharacter(c) => {
-                        let mut char_input_events = world
-                            .get_resource_mut::<Events<ReceivedCharacter>>()
-                            .unwrap();
-
-                        char_input_events.send(ReceivedCharacter {
-                            id: window_id,
-                            char: c,
-                        })
-                    }
-                    WindowEvent::ScaleFactorChanged {
-                        scale_factor,
-                        new_inner_size,
-                    } => {
-                        let mut backend_scale_factor_change_events = world
-                            .get_resource_mut::<Events<WindowBackendScaleFactorChanged>>()
-                            .unwrap();
-                        backend_scale_factor_change_events.send(WindowBackendScaleFactorChanged {
-                            id: window_id,
-                            scale_factor,
-                        });
-                        let prior_factor = window.scale_factor();
-                        window.update_scale_factor_from_backend(scale_factor);
-                        let new_factor = window.scale_factor();
-                        if let Some(forced_factor) = window.scale_factor_override() {
-                            // If there is a scale factor override, then force that to be used
-                            // Otherwise, use the OS suggested size
-                            // We have already told the OS about our resize constraints, so
-                            // the new_inner_size should take those into account
-                            *new_inner_size = winit::dpi::LogicalSize::new(
-                                window.requested_width(),
-                                window.requested_height(),
-                            )
-                            .to_physical::<u32>(forced_factor);
-                        } else if approx::relative_ne!(new_factor, prior_factor) {
-                            let mut scale_factor_change_events = world
-                                .get_resource_mut::<Events<WindowScaleFactorChanged>>()
-                                .unwrap();
-
-                            scale_factor_change_events.send(WindowScaleFactorChanged {
-                                id: window_id,
-                                scale_factor,
-                            });
-                        }
-
-                        let new_logical_width = new_inner_size.width as f64 / new_factor;
-                        let new_logical_height = new_inner_size.height as f64 / new_factor;
-                        if approx::relative_ne!(window.width() as f64, new_logical_width)
-                            || approx::relative_ne!(window.height() as f64, new_logical_height)
-                        {
+                    match event {
+                        WindowEvent::Resized(size) => {
+                            window.update_actual_size_from_backend(size.width, size.height);
                             let mut resize_events =
                                 world.get_resource_mut::<Events<WindowResized>>().unwrap();
                             resize_events.send(WindowResized {
                                 id: window_id,
-                                width: new_logical_width as f32,
-                                height: new_logical_height as f32,
+                                width: window.width(),
+                                height: window.height(),
                             });
                         }
-                        window.update_actual_size_from_backend(
-                            new_inner_size.width,
-                            new_inner_size.height,
-                        );
+                        WindowEvent::CloseRequested => {
+                            let mut window_close_requested_events = world
+                                .get_resource_mut::<Events<WindowCloseRequested>>()
+                                .unwrap();
+                            window_close_requested_events.send(WindowCloseRequested {
+                                id: window_id,
+                            });
+                        }
+                        WindowEvent::KeyboardInput {
+                            ref input, ..
+                        } => {
+                            let mut keyboard_input_events =
+                                world.get_resource_mut::<Events<KeyboardInput>>().unwrap();
+                            keyboard_input_events.send(converters::convert_keyboard_input(input));
+                        }
+                        WindowEvent::CursorMoved {
+                            position, ..
+                        } => {
+                            let mut cursor_moved_events =
+                                world.get_resource_mut::<Events<CursorMoved>>().unwrap();
+                            let winit_window =
+                                vulkano_winit_windows.get_winit_window(window_id).unwrap();
+                            let inner_size = winit_window.inner_size();
+
+                            // move origin to bottom left
+                            let y_position = inner_size.height as f64 - position.y;
+
+                            let physical_position = DVec2::new(position.x, y_position);
+                            window.update_cursor_physical_position_from_backend(Some(
+                                physical_position,
+                            ));
+
+                            cursor_moved_events.send(CursorMoved {
+                                id: window_id,
+                                position: (physical_position / window.scale_factor()).as_vec2(),
+                            });
+                        }
+                        WindowEvent::CursorEntered {
+                            ..
+                        } => {
+                            let mut cursor_entered_events =
+                                world.get_resource_mut::<Events<CursorEntered>>().unwrap();
+                            cursor_entered_events.send(CursorEntered {
+                                id: window_id,
+                            });
+                        }
+                        WindowEvent::CursorLeft {
+                            ..
+                        } => {
+                            let mut cursor_left_events =
+                                world.get_resource_mut::<Events<CursorLeft>>().unwrap();
+                            window.update_cursor_physical_position_from_backend(None);
+                            cursor_left_events.send(CursorLeft {
+                                id: window_id,
+                            });
+                        }
+                        WindowEvent::MouseInput {
+                            state,
+                            button,
+                            ..
+                        } => {
+                            let mut mouse_button_input_events = world
+                                .get_resource_mut::<Events<MouseButtonInput>>()
+                                .unwrap();
+                            mouse_button_input_events.send(MouseButtonInput {
+                                button: converters::convert_mouse_button(button),
+                                state: converters::convert_element_state(state),
+                            });
+                        }
+                        WindowEvent::MouseWheel {
+                            delta, ..
+                        } => match delta {
+                            event::MouseScrollDelta::LineDelta(x, y) => {
+                                let mut mouse_wheel_input_events =
+                                    world.get_resource_mut::<Events<MouseWheel>>().unwrap();
+                                mouse_wheel_input_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Line,
+                                    x,
+                                    y,
+                                });
+                            }
+                            event::MouseScrollDelta::PixelDelta(p) => {
+                                let mut mouse_wheel_input_events =
+                                    world.get_resource_mut::<Events<MouseWheel>>().unwrap();
+                                mouse_wheel_input_events.send(MouseWheel {
+                                    unit: MouseScrollUnit::Pixel,
+                                    x: p.x as f32,
+                                    y: p.y as f32,
+                                });
+                            }
+                        },
+                        WindowEvent::Touch(touch) => {
+                            let mut touch_input_events =
+                                world.get_resource_mut::<Events<TouchInput>>().unwrap();
+
+                            let mut location = touch.location.to_logical(window.scale_factor());
+
+                            // On a mobile window, the start is from the top while on PC/Linux/OSX from
+                            // bottom
+                            if cfg!(target_os = "android") || cfg!(target_os = "ios") {
+                                let window_height = windows.get_primary().unwrap().height();
+                                location.y = window_height - location.y;
+                            }
+                            touch_input_events
+                                .send(converters::convert_touch_input(touch, location));
+                        }
+                        WindowEvent::ReceivedCharacter(c) => {
+                            let mut char_input_events = world
+                                .get_resource_mut::<Events<ReceivedCharacter>>()
+                                .unwrap();
+
+                            char_input_events.send(ReceivedCharacter {
+                                id: window_id,
+                                char: c,
+                            })
+                        }
+                        WindowEvent::ScaleFactorChanged {
+                            scale_factor,
+                            new_inner_size,
+                        } => {
+                            let mut backend_scale_factor_change_events = world
+                                .get_resource_mut::<Events<WindowBackendScaleFactorChanged>>()
+                                .unwrap();
+                            backend_scale_factor_change_events.send(
+                                WindowBackendScaleFactorChanged {
+                                    id: window_id,
+                                    scale_factor,
+                                },
+                            );
+                            let prior_factor = window.scale_factor();
+                            window.update_scale_factor_from_backend(scale_factor);
+                            let new_factor = window.scale_factor();
+                            if let Some(forced_factor) = window.scale_factor_override() {
+                                // If there is a scale factor override, then force that to be used
+                                // Otherwise, use the OS suggested size
+                                // We have already told the OS about our resize constraints, so
+                                // the new_inner_size should take those into account
+                                *new_inner_size = winit::dpi::LogicalSize::new(
+                                    window.requested_width(),
+                                    window.requested_height(),
+                                )
+                                .to_physical::<u32>(forced_factor);
+                            } else if approx::relative_ne!(new_factor, prior_factor) {
+                                let mut scale_factor_change_events = world
+                                    .get_resource_mut::<Events<WindowScaleFactorChanged>>()
+                                    .unwrap();
+
+                                scale_factor_change_events.send(WindowScaleFactorChanged {
+                                    id: window_id,
+                                    scale_factor,
+                                });
+                            }
+
+                            let new_logical_width = new_inner_size.width as f64 / new_factor;
+                            let new_logical_height = new_inner_size.height as f64 / new_factor;
+                            if approx::relative_ne!(window.width() as f64, new_logical_width)
+                                || approx::relative_ne!(window.height() as f64, new_logical_height)
+                            {
+                                let mut resize_events =
+                                    world.get_resource_mut::<Events<WindowResized>>().unwrap();
+                                resize_events.send(WindowResized {
+                                    id: window_id,
+                                    width: new_logical_width as f32,
+                                    height: new_logical_height as f32,
+                                });
+                            }
+                            window.update_actual_size_from_backend(
+                                new_inner_size.width,
+                                new_inner_size.height,
+                            );
+                        }
+                        WindowEvent::Focused(focused) => {
+                            window.update_focused_status_from_backend(focused);
+                            let mut focused_events =
+                                world.get_resource_mut::<Events<WindowFocused>>().unwrap();
+                            focused_events.send(WindowFocused {
+                                id: window_id,
+                                focused,
+                            });
+                        }
+                        WindowEvent::DroppedFile(path_buf) => {
+                            let mut events =
+                                world.get_resource_mut::<Events<FileDragAndDrop>>().unwrap();
+                            events.send(FileDragAndDrop::DroppedFile {
+                                id: window_id,
+                                path_buf,
+                            });
+                        }
+                        WindowEvent::HoveredFile(path_buf) => {
+                            let mut events =
+                                world.get_resource_mut::<Events<FileDragAndDrop>>().unwrap();
+                            events.send(FileDragAndDrop::HoveredFile {
+                                id: window_id,
+                                path_buf,
+                            });
+                        }
+                        WindowEvent::HoveredFileCancelled => {
+                            let mut events =
+                                world.get_resource_mut::<Events<FileDragAndDrop>>().unwrap();
+                            events.send(FileDragAndDrop::HoveredFileCancelled {
+                                id: window_id,
+                            });
+                        }
+                        WindowEvent::Moved(position) => {
+                            let position = ivec2(position.x, position.y);
+                            window.update_actual_position_from_backend(position);
+                            let mut events =
+                                world.get_resource_mut::<Events<WindowMoved>>().unwrap();
+                            events.send(WindowMoved {
+                                id: window_id,
+                                position,
+                            });
+                        }
+                        _ => {}
                     }
-                    WindowEvent::Focused(focused) => {
-                        window.update_focused_status_from_backend(focused);
-                        let mut focused_events =
-                            world.get_resource_mut::<Events<WindowFocused>>().unwrap();
-                        focused_events.send(WindowFocused {
-                            id: window_id,
-                            focused,
-                        });
-                    }
-                    WindowEvent::DroppedFile(path_buf) => {
-                        let mut events =
-                            world.get_resource_mut::<Events<FileDragAndDrop>>().unwrap();
-                        events.send(FileDragAndDrop::DroppedFile {
-                            id: window_id,
-                            path_buf,
-                        });
-                    }
-                    WindowEvent::HoveredFile(path_buf) => {
-                        let mut events =
-                            world.get_resource_mut::<Events<FileDragAndDrop>>().unwrap();
-                        events.send(FileDragAndDrop::HoveredFile {
-                            id: window_id,
-                            path_buf,
-                        });
-                    }
-                    WindowEvent::HoveredFileCancelled => {
-                        let mut events =
-                            world.get_resource_mut::<Events<FileDragAndDrop>>().unwrap();
-                        events.send(FileDragAndDrop::HoveredFileCancelled {
-                            id: window_id,
-                        });
-                    }
-                    WindowEvent::Moved(position) => {
-                        let position = ivec2(position.x, position.y);
-                        window.update_actual_position_from_backend(position);
-                        let mut events = world.get_resource_mut::<Events<WindowMoved>>().unwrap();
-                        events.send(WindowMoved {
-                            id: window_id,
-                            position,
-                        });
-                    }
-                    _ => {}
                 }
-            }
-            event::Event::DeviceEvent {
-                event: DeviceEvent::MouseMotion {
-                    delta,
-                },
-                ..
-            } => {
-                let mut mouse_motion_events =
-                    app.world.get_resource_mut::<Events<MouseMotion>>().unwrap();
-                mouse_motion_events.send(MouseMotion {
-                    delta: Vec2::new(delta.0 as f32, delta.1 as f32),
-                });
-            }
-            event::Event::Suspended => {
-                active = false;
-            }
-            event::Event::Resumed => {
-                active = true;
-            }
-            event::Event::MainEventsCleared => {
-                handle_create_window_events(
-                    &mut app.world,
-                    event_loop,
-                    &mut create_window_event_reader,
-                );
-                if active {
-                    app.update();
+                event::Event::DeviceEvent {
+                    event:
+                        DeviceEvent::MouseMotion {
+                            delta,
+                        },
+                    ..
+                } => {
+                    let mut mouse_motion_events =
+                        app.world.get_resource_mut::<Events<MouseMotion>>().unwrap();
+                    mouse_motion_events.send(MouseMotion {
+                        delta: Vec2::new(delta.0 as f32, delta.1 as f32),
+                    });
                 }
+                event::Event::Suspended => {
+                    active = false;
+                }
+                event::Event::Resumed => {
+                    active = true;
+                }
+                event::Event::MainEventsCleared => {
+                    handle_create_window_events(
+                        &mut app.world,
+                        event_loop,
+                        &mut create_window_event_reader,
+                    );
+                    if active {
+                        app.update();
+                    }
+                }
+                _ => (),
             }
-            _ => (),
         }
     };
     if should_return_from_run {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use bevy::{utils::HashMap, window::WindowDescriptor};
 #[cfg(feature = "gui")]
-use egui::CtxRef;
+use egui_winit_vulkano::egui::Context;
 #[cfg(feature = "gui")]
 use egui_winit_vulkano::Gui;
 use vulkano::{
@@ -14,11 +14,12 @@ use vulkano::{
     sync,
     sync::{FlushError, GpuFuture},
 };
-use vulkano_win::create_vk_surface;
+use vulkano_win::create_surface_from_winit;
 use winit::window::Window;
 
 use crate::{
-    create_device_image, DeviceImageView, FinalImageView, VulkanoContext, DEFAULT_IMAGE_FORMAT,
+    create_device_image, vulkano::swapchain::SwapchainCreateInfo, DeviceImageView, FinalImageView,
+    VulkanoContext, DEFAULT_IMAGE_FORMAT,
 };
 
 pub struct VulkanoWindowRenderer {
@@ -51,12 +52,12 @@ impl VulkanoWindowRenderer {
         descriptor: &WindowDescriptor,
     ) -> VulkanoWindowRenderer {
         // Create rendering surface from window
-        let surface = create_vk_surface(window, vulkano_context.instance()).unwrap();
+        let surface = create_surface_from_winit(window, vulkano_context.instance()).unwrap();
 
         // Create swap chain & frame(s) to which we'll render
         let (swap_chain, final_views) = vulkano_context.create_swap_chain(
+            vulkano_context.device(),
             surface.clone(),
-            vulkano_context.graphics_queue(),
             if descriptor.vsync {
                 PresentMode::Fifo
             } else {
@@ -85,7 +86,7 @@ impl VulkanoWindowRenderer {
 
     /// Get egui gui context
     #[cfg(feature = "gui")]
-    pub fn gui_context(&self) -> CtxRef {
+    pub fn gui_context(&self) -> Context {
         self.gui.context()
     }
 
@@ -97,7 +98,7 @@ impl VulkanoWindowRenderer {
 
     /// Return swapchain image format
     pub fn swapchain_format(&self) -> Format {
-        self.final_views[self.image_index].format()
+        self.final_views[self.image_index].format().unwrap()
     }
 
     /// Return default image format for images  
@@ -258,23 +259,21 @@ impl VulkanoWindowRenderer {
     /// Recreates swapchain images and image views that should follow swap chain image size
     fn recreate_swapchain_and_views(&mut self) {
         let dimensions: [u32; 2] = self.window().inner_size().into();
-        let (new_swapchain, new_images) =
-            match self.swap_chain.recreate().dimensions(dimensions).build() {
-                Ok(r) => r,
-                Err(SwapchainCreationError::UnsupportedDimensions) => {
-                    bevy::log::error!(
-                        "{}",
-                        SwapchainCreationError::UnsupportedDimensions.to_string()
-                    );
-                    return;
-                }
-                Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
-            };
+        let (new_swapchain, new_images) = match self.swap_chain.recreate(SwapchainCreateInfo {
+            image_extent: dimensions,
+            ..self.swap_chain.create_info()
+        }) {
+            Ok(r) => r,
+            Err(SwapchainCreationError::ImageExtentNotSupported {
+                ..
+            }) => return,
+            Err(e) => panic!("Failed to recreate swapchain: {:?}", e),
+        };
 
         self.swap_chain = new_swapchain;
         let new_images = new_images
             .into_iter()
-            .map(|image| ImageView::new(image).unwrap())
+            .map(|image| ImageView::new_default(image).unwrap())
             .collect::<Vec<_>>();
         self.final_views = new_images;
         // Resize images that follow swapchain size
@@ -285,7 +284,7 @@ impl VulkanoWindowRenderer {
             .map(|c| *c.0)
             .collect::<Vec<usize>>();
         for i in resizable_views {
-            let format = self.get_image_target(i).format();
+            let format = self.get_image_target(i).format().unwrap();
             self.remove_image_target(i);
             self.add_image_target(i, None, format);
         }

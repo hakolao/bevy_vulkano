@@ -5,21 +5,22 @@ use vulkano::instance::InstanceCreationError;
 use vulkano::{
     device::{
         physical::{PhysicalDevice, PhysicalDeviceType},
-        Device, DeviceExtensions, Features, Queue,
+        Device, DeviceCreateInfo, DeviceExtensions, Features, Queue, QueueCreateInfo,
     },
     image::{view::ImageView, ImageUsage},
     instance::{
         debug::{DebugCallback, MessageSeverity, MessageType},
         Instance, InstanceExtensions,
     },
-    swapchain::{
-        ColorSpace, FullscreenExclusive, PresentMode, Surface, SurfaceTransform, Swapchain,
-    },
+    swapchain::{PresentMode, Surface, Swapchain},
     Version,
 };
 use winit::window::Window;
 
-use crate::{FinalImageView, VulkanoWinitConfig};
+use crate::{
+    vulkano::{instance::InstanceCreateInfo, swapchain::SwapchainCreateInfo},
+    FinalImageView, VulkanoWinitConfig,
+};
 
 pub struct VulkanoContext {
     instance: Arc<Instance>,
@@ -38,7 +39,10 @@ unsafe impl Send for VulkanoContext {}
 
 impl VulkanoContext {
     pub fn new(config: &VulkanoWinitConfig) -> Self {
-        let instance = create_vk_instance(config.instance_extensions, &config.layers);
+        let instance = create_vk_instance(
+            config.instance_extensions,
+            config.layers.iter().map(|s| s.to_string()).collect(),
+        );
         let debug_callback = create_vk_debug_callback(&instance);
         // Get desired device
         let physical_device = PhysicalDevice::enumerate(&instance)
@@ -100,14 +104,15 @@ impl VulkanoContext {
 
         if let Some((_compute_index, queue_family_compute)) = compute_family_data {
             let (device, mut queues) = {
-                Device::new(
-                    physical,
-                    &features,
-                    &physical.required_extensions().union(&device_extensions),
-                    [(queue_family_graphics, 1.0), (queue_family_compute, 0.5)]
-                        .iter()
-                        .cloned(),
-                )
+                Device::new(physical, DeviceCreateInfo {
+                    enabled_extensions: physical.required_extensions().union(&device_extensions),
+                    enabled_features: features,
+                    queue_create_infos: vec![
+                        QueueCreateInfo::family(queue_family_graphics),
+                        QueueCreateInfo::family(queue_family_compute),
+                    ],
+                    _ne: Default::default(),
+                })
                 .unwrap()
             };
             let gfx_queue = queues.next().unwrap();
@@ -115,12 +120,12 @@ impl VulkanoContext {
             (device, gfx_queue, compute_queue)
         } else {
             let (device, mut queues) = {
-                Device::new(
-                    physical,
-                    &features,
-                    &physical.required_extensions().union(&device_extensions),
-                    [(queue_family_graphics, 1.0)].iter().cloned(),
-                )
+                Device::new(physical, DeviceCreateInfo {
+                    enabled_extensions: physical.required_extensions().union(&device_extensions),
+                    enabled_features: features,
+                    queue_create_infos: vec![QueueCreateInfo::family(queue_family_graphics)],
+                    _ne: Default::default(),
+                })
                 .unwrap()
             };
             let gfx_queue = queues.next().unwrap();
@@ -132,34 +137,41 @@ impl VulkanoContext {
     /// Creates swapchain and swapchain images
     pub(crate) fn create_swap_chain(
         &self,
+        device: Arc<Device>,
         surface: Arc<Surface<Window>>,
-        queue: Arc<Queue>,
         present_mode: PresentMode,
     ) -> (Arc<Swapchain<Window>>, Vec<FinalImageView>) {
-        let caps = surface.capabilities(self.device.physical_device()).unwrap();
-        let alpha = caps.supported_composite_alpha.iter().next().unwrap();
-        let format = caps.supported_formats[0].0;
-        let dimensions: [u32; 2] = surface.window().inner_size().into();
-        let (swap_chain, images) = Swapchain::start(self.device.clone(), surface)
-            .num_images(caps.min_image_count)
-            .format(format)
-            .dimensions(dimensions)
-            .usage(ImageUsage::color_attachment())
-            .sharing_mode(&queue)
-            .composite_alpha(alpha)
-            .transform(SurfaceTransform::Identity)
-            .present_mode(present_mode)
-            .fullscreen_exclusive(FullscreenExclusive::Default)
-            .clipped(true)
-            .color_space(ColorSpace::SrgbNonLinear)
-            .layers(1)
-            .build()
+        let surface_capabilities = device
+            .physical_device()
+            .surface_capabilities(&surface, Default::default())
             .unwrap();
+        let image_format = Some(
+            device
+                .physical_device()
+                .surface_formats(&surface, Default::default())
+                .unwrap()[0]
+                .0,
+        );
+        let image_extent = surface.window().inner_size().into();
+        let (swapchain, images) = Swapchain::new(device, surface, SwapchainCreateInfo {
+            min_image_count: surface_capabilities.min_image_count,
+            image_format,
+            image_extent,
+            image_usage: ImageUsage::color_attachment(),
+            composite_alpha: surface_capabilities
+                .supported_composite_alpha
+                .iter()
+                .next()
+                .unwrap(),
+            present_mode,
+            ..Default::default()
+        })
+        .unwrap();
         let images = images
             .into_iter()
-            .map(|image| ImageView::new(image).unwrap())
+            .map(|image| ImageView::new_default(image).unwrap())
             .collect::<Vec<_>>();
-        (swap_chain, images)
+        (swapchain, images)
     }
 
     pub fn device_name(&self) -> &str {
@@ -198,12 +210,17 @@ impl VulkanoContext {
 // Create vk instance with given layers
 pub fn create_vk_instance(
     instance_extensions: InstanceExtensions,
-    layers: &[&str],
+    layers: Vec<String>,
 ) -> Arc<Instance> {
     // Create instance
     #[cfg(target_os = "macos")]
     {
-        match Instance::new(None, Version::V1_2, &instance_extensions, layers.to_vec()) {
+        match Instance::new(InstanceCreateInfo {
+            application_version: Version::V1_2,
+            enabled_extensions: instance_extensions,
+            enabled_layers: layers,
+            ..Default::default()
+        }) {
             Err(e) => {
                 match e {
                     InstanceCreationError::LoadingError(le) => {
@@ -218,8 +235,13 @@ pub fn create_vk_instance(
     }
     #[cfg(not(target_os = "macos"))]
     {
-        Instance::new(None, Version::V1_2, &instance_extensions, layers.to_vec())
-            .expect("Failed to create instance")
+        Instance::new(InstanceCreateInfo {
+            application_version: Version::V1_2,
+            enabled_extensions: instance_extensions,
+            enabled_layers: layers,
+            ..Default::default()
+        })
+        .expect("Failed to create instance")
     }
 }
 

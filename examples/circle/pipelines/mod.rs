@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use anyhow::*;
+use bytemuck::{Pod, Zeroable};
 pub use circle_draw_pipeline::*;
 use vulkano::{
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SecondaryAutoCommandBuffer},
@@ -10,13 +11,13 @@ use vulkano::{
     device::Queue,
     image::ImageViewAbstract,
     render_pass::Subpass,
-    sampler::{Filter, Sampler, SamplerAddressMode, SamplerMipmapMode},
+    sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo, SamplerMipmapMode},
 };
 
 mod circle_draw_pipeline;
 
 #[repr(C)]
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
 pub struct TextVertex {
     pub position: [f32; 2],
     pub normal: [f32; 2],
@@ -78,13 +79,15 @@ pub fn sampled_image_desc_set(
     image: Arc<dyn ImageViewAbstract + 'static>,
     sampler_mode: SamplerAddressMode,
 ) -> Result<Arc<PersistentDescriptorSet>> {
-    let sampler_builder = Sampler::start(gfx_queue.device().clone())
-        .filter(Filter::Nearest)
-        .address_mode(sampler_mode)
-        .mipmap_mode(SamplerMipmapMode::Nearest)
-        .mip_lod_bias(0.0)
-        .lod(0.0..=0.0);
-    let sampler = sampler_builder.build()?;
+    let sampler = Sampler::new(gfx_queue.device().clone(), SamplerCreateInfo {
+        mag_filter: Filter::Nearest,
+        min_filter: Filter::Nearest,
+        address_mode: [sampler_mode; 3],
+        mipmap_mode: SamplerMipmapMode::Nearest,
+        ..Default::default()
+    })
+    .unwrap();
+
     Ok(PersistentDescriptorSet::new(layout.clone(), [
         WriteDescriptorSet::image_view_sampler(0, image.clone(), sampler),
     ])?)

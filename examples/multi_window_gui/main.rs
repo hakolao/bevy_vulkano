@@ -5,6 +5,7 @@ use bevy::{
     prelude::*,
     window::{CreateWindow, WindowId, WindowMode},
 };
+use bevy_vulkano::egui_winit_vulkano::egui;
 #[cfg(feature = "example_has_gui")]
 use bevy_vulkano::{VulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin};
 

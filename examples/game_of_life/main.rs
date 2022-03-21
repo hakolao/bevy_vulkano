@@ -129,7 +129,6 @@ fn game_of_life_pipeline_system(
     };
 
     let after_compute = game_of_life.compute(before, [1.0, 0.0, 0.0, 1.0], [0.0; 4]);
-
     let color_image = game_of_life.color_image();
     let final_image = primary_window.final_image();
     let after_render = place_over_frame.render(after_compute, color_image, final_image);
