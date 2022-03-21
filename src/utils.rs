@@ -53,7 +53,7 @@ pub fn create_device_image(queue: Arc<Queue>, size: [u32; 2], format: Format) ->
         array_layers: 1,
     };
     let flags = ImageCreateFlags::none();
-    ImageView::new(
+    ImageView::new_default(
         StorageImage::with_usage(
             queue.device().clone(),
             dims,
@@ -86,7 +86,7 @@ pub fn create_device_image_with_usage(
         array_layers: 1,
     };
     let flags = ImageCreateFlags::none();
-    ImageView::new(
+    ImageView::new_default(
         StorageImage::with_usage(
             queue.device().clone(),
             dims,
@@ -131,7 +131,7 @@ pub fn texture_from_file(
     };
     let (texture, _tex_fut) =
         ImmutableImage::from_iter(rgba.into_iter(), vko_dims, MipmapsCount::One, format, queue)?;
-    Ok(ImageView::new(texture).unwrap())
+    Ok(ImageView::new_default(texture).unwrap())
 }
 
 /// Copied from vulkano winit (one less winit dep...)

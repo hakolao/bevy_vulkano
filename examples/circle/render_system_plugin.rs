@@ -1,6 +1,8 @@
 #[cfg(feature = "example_has_gui")]
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::{prelude::*, window::WindowId};
+#[cfg(feature = "example_has_gui")]
+use bevy_vulkano::egui_winit_vulkano::egui;
 use bevy_vulkano::{PipelineSyncData, VulkanoWindows};
 use vulkano::{image::ImageAccess, sync::GpuFuture};
 

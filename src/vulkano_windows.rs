@@ -6,7 +6,7 @@ use bevy::{
 use raw_window_handle::HasRawWindowHandle;
 use winit::dpi::LogicalSize;
 
-use crate::{VulkanoContext, VulkanoWindowRenderer};
+use crate::{VulkanoContext, VulkanoWindowRenderer, VulkanoWinitConfig};
 
 #[derive(Default)]
 pub struct VulkanoWindows {
@@ -22,6 +22,7 @@ impl VulkanoWindows {
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
         vulkano_context: &VulkanoContext,
+        vulkano_config: &VulkanoWinitConfig,
     ) -> Window {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
@@ -135,7 +136,12 @@ impl VulkanoWindows {
 
         self.windows.insert(
             winit_window.id(),
-            VulkanoWindowRenderer::new(vulkano_context, winit_window, window_descriptor),
+            VulkanoWindowRenderer::new(
+                vulkano_context,
+                winit_window,
+                window_descriptor,
+                vulkano_config,
+            ),
         );
 
         Window::new(

@@ -6,6 +6,8 @@ use bevy::{
     window::{CreateWindow, WindowId, WindowMode},
 };
 #[cfg(feature = "example_has_gui")]
+use bevy_vulkano::egui_winit_vulkano::egui;
+#[cfg(feature = "example_has_gui")]
 use bevy_vulkano::{VulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin};
 
 #[cfg(feature = "example_has_gui")]
@@ -34,7 +36,11 @@ fn main() {
 #[cfg(feature = "example_has_gui")]
 fn main() {
     App::new()
-        .insert_resource(VulkanoWinitConfig::default())
+        .insert_resource(VulkanoWinitConfig {
+            // Since we're only drawing gui, let's clear each frame
+            is_gui_overlay: true,
+            ..VulkanoWinitConfig::default()
+        })
         .insert_resource(WindowDescriptor {
             width: 1920.0,
             height: 1080.0,
@@ -142,6 +148,9 @@ pub fn main_render_system_secondary_window(mut vulkano_windows: ResMut<VulkanoWi
             .fixed_pos(egui::pos2(10.0, 10.0))
             .show(&ctx, |ui| {
                 ui.label(format!("Secondary Window id {:?}", window_id));
+                ui.button("Hello")
+                    .clicked()
+                    .then(|| println!("Clicked me!"));
             });
         // Render egui
         let final_image = vulkano_window.final_image();

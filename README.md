@@ -145,6 +145,8 @@ pub fn post_render_system(
 
 ## Dependencies
 
+This library re-exports `vulkano` and `egui_winit_vulkano`.
+
 Add following to your `Cargo.toml`:
 ```toml
 [dependencies.bevy]
@@ -158,13 +160,6 @@ version = "0.1.0"
 default-features = false
 # gui or no gui...
 features = ["gui"]
-
-# For gui
-egui = "0.16.0"
-# For render pipelines etc.
-vulkano-shaders = "0.28"
-vulkano = "0.28"
-
 ```
 
 ## Examples:
