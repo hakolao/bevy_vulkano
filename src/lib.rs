@@ -35,14 +35,11 @@ use bevy::{
 pub use egui_winit_vulkano;
 pub use pipeline_sync_data::*;
 pub use utils::*;
-pub use vulkano;
 use vulkano::{
     device::{DeviceExtensions, Features},
     instance::InstanceExtensions,
 };
 pub use vulkano_context::*;
-pub use vulkano_shaders;
-pub use vulkano_win;
 pub use vulkano_window_renderer::*;
 pub use vulkano_windows::*;
 use winit::{

@@ -10,17 +10,14 @@ use vulkano::{
     image::{view::ImageView, ImageUsage},
     instance::{
         debug::{DebugCallback, MessageSeverity, MessageType},
-        Instance, InstanceExtensions,
+        Instance, InstanceCreateInfo, InstanceExtensions,
     },
-    swapchain::{PresentMode, Surface, Swapchain},
+    swapchain::{PresentMode, Surface, Swapchain, SwapchainCreateInfo},
     Version,
 };
 use winit::window::Window;
 
-use crate::{
-    vulkano::{instance::InstanceCreateInfo, swapchain::SwapchainCreateInfo},
-    FinalImageView, VulkanoWinitConfig,
-};
+use crate::{FinalImageView, VulkanoWinitConfig};
 
 pub struct VulkanoContext {
     instance: Arc<Instance>,

@@ -10,7 +10,9 @@ use vulkano::{
     format::Format,
     image::{view::ImageView, ImageAccess, ImageViewAbstract},
     swapchain,
-    swapchain::{AcquireError, PresentMode, Surface, Swapchain, SwapchainCreationError},
+    swapchain::{
+        AcquireError, PresentMode, Surface, Swapchain, SwapchainCreateInfo, SwapchainCreationError,
+    },
     sync,
     sync::{FlushError, GpuFuture},
 };
@@ -18,8 +20,8 @@ use vulkano_win::create_surface_from_winit;
 use winit::window::Window;
 
 use crate::{
-    create_device_image, vulkano::swapchain::SwapchainCreateInfo, DeviceImageView, FinalImageView,
-    VulkanoContext, VulkanoWinitConfig, DEFAULT_IMAGE_FORMAT,
+    create_device_image, DeviceImageView, FinalImageView, VulkanoContext, VulkanoWinitConfig,
+    DEFAULT_IMAGE_FORMAT,
 };
 
 pub struct VulkanoWindowRenderer {
