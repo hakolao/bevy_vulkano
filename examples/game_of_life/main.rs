@@ -37,7 +37,7 @@ fn main() {
             width: 1024.0,
             height: 1024.0,
             title: "Bevy Vulkano Game Of Life".to_string(),
-            vsync: false,
+            present_mode: bevy::window::PresentMode::Immediate,
             resizable: true,
             mode: WindowMode::Windowed,
             ..WindowDescriptor::default()

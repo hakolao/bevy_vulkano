@@ -61,10 +61,14 @@ impl VulkanoWindowRenderer {
         let (swap_chain, final_views) = vulkano_context.create_swap_chain(
             vulkano_context.device(),
             surface.clone(),
-            if descriptor.vsync {
+            if descriptor.present_mode == bevy::window::PresentMode::Fifo {
                 PresentMode::Fifo
-            } else {
+            } else if descriptor.present_mode == bevy::window::PresentMode::Immediate {
                 PresentMode::Immediate
+            } else if descriptor.present_mode == bevy::window::PresentMode::Mailbox {
+                PresentMode::Mailbox
+            } else {
+                PresentMode::Fifo
             },
         );
 

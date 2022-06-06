@@ -17,7 +17,8 @@ mod vulkano_window_renderer;
 mod vulkano_windows;
 
 use bevy::{
-    app::{App, AppExit, CoreStage, EventReader, Events, ManualEventReader, Plugin},
+    app::{App, AppExit, CoreStage, Plugin},
+    ecs::event::{Events, ManualEventReader},
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
@@ -232,7 +233,7 @@ fn change_window(world: &mut World) {
                             .to_physical::<f64>(scale_factor),
                     );
                 }
-                bevy::window::WindowCommand::SetVsync {
+                bevy::window::WindowCommand::SetPresentMode {
                     ..
                 } => (),
                 bevy::window::WindowCommand::SetResizable {
@@ -369,10 +370,14 @@ pub fn winit_runner(app: App) {
 }
 
 pub fn winit_runner_with(mut app: App) {
-    let mut event_loop = app.world.remove_non_send::<EventLoop<()>>().unwrap();
+    let mut event_loop = app
+        .world
+        .remove_non_send_resource::<EventLoop<()>>()
+        .unwrap();
     let mut create_window_event_reader = ManualEventReader::<CreateWindow>::default();
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
-    app.world.insert_non_send(event_loop.create_proxy());
+    app.world
+        .insert_non_send_resource(event_loop.create_proxy());
 
     trace!("Entering winit event loop");
 

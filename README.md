@@ -13,8 +13,10 @@ This makes it extremely easy to do following with Vulkano:
 - Multiple Windows
 - Event handling
 
-The plugin contains functionality for resizing, multiple windows & utility for beginning and ending the frame.
+From Vulkano's perspective, this plugin contains functionality for resizing, multiple windows & utility for beginning and ending the frame.
 However, you'll need to do everything in between yourself. A good way to get started is to look at the examples.
+
+This should be especially useful for learning graphics pipelines from scratch using Vulkano.
 
 1. Add `VulkanoWinitPlugin`. It also adds `WindowPlugin` and anything that's needed.
 2. Then create your own rendering systems using vulkano's pipelines (See example.). You'll need to know how to use [Vulkano](https://github.com/vulkano-rs/vulkano).
@@ -42,7 +44,7 @@ fn main() {
             width: 1920.0,
             height: 1080.0,
             title: "Bevy Vulkano".to_string(),
-            vsync: false,
+            present_mode: bevy::window::PresentMode::Immediate,
             resizable: true,
             mode: WindowMode::Windowed,
             ..WindowDescriptor::default()
@@ -98,65 +100,20 @@ fn my_pipeline_render_system(
 }
 ```
 
-### Separating render systems
-
-To allow parallel render systems for your pipelines: Splitting your rendering to smaller systems, you could create
-`pre_render_setup_system` & `post_render_setup_system`. Which can update the futures pre and post render.
-`PipelineSyncData` would be used to update `after` and `before` futures during the frame.
-
-Your render system in between should update the `after` future.
-
-```rust
-/// Starts frame, updates before pipeline future & final image view
-pub fn pre_render_setup_system(
-    mut vulkano_windows: ResMut<VulkanoWindows>,
-    mut pipeline_frame_data: ResMut<PipelineSyncData>,
-) {
-    let vulkano_renderer = vulkano_windows
-        .get_primary_window_renderer_mut()
-        .unwrap();
-    let sync_data = pipeline_frame_data.get_primary_mut().unwrap();
-    let before = match vulkano_renderer.start_frame() {
-        Err(e) => {
-            bevy::log::error!("Failed to start frame: {}", e);
-            None
-        }
-        Ok(f) => Some(f),
-    };
-    sync_data.before = before;
-}
-
-/// If rendering was successful, draw gui & finish frame
-pub fn post_render_system(
-    mut vulkano_windows: ResMut<VulkanoWindows>,
-    mut pipeline_frame_data: ResMut<PipelineSyncData>,
-) {
-    let vulkano_window = vulkano_windows
-        .get_primary_window_renderer_mut()
-        .unwrap();
-    let sync_data = pipeline_frame_data.get_primary_mut().unwrap();
-    if let Some(after) = sync_data.after.take() {
-        let final_image_view = vulkano_window.final_image();
-        let at_end_future = vulkano_window.gui().draw_on_image(after, final_image_view);
-        vulkano_window.finish_frame(at_end_future);
-    }
-}
-```
-
 ## Dependencies
 
-This library re-exports `vulkano` and `egui_winit_vulkano`.
+This library re-exports `egui_winit_vulkano`.
 
 Add following to your `Cargo.toml`:
 ```toml
 [dependencies.bevy]
-version = "0.6"
+version = "0.7"
 default-features = false
 # Add features you need, but don't add "render". This might disable a lot of features you wanted... e.g SpritePlugin
 features = []
 
 [dependencies.bevy_vulkano]
-version = "0.1.0"
+version = "0.2.0"
 default-features = false
 # gui or no gui...
 features = ["gui"]

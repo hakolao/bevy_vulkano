@@ -41,7 +41,7 @@ fn main() {
             width: 1920.0,
             height: 1080.0,
             title: "Bevy Vulkano".to_string(),
-            vsync: false,
+            present_mode: bevy::window::PresentMode::Immediate,
             resizable: true,
             mode: WindowMode::Windowed,
             ..WindowDescriptor::default()
