@@ -82,7 +82,7 @@ fn my_pipeline_render_system(
 ) {
     let primary_window = vulkano_windows.get_primary_window_renderer_mut().unwrap();
     // Start frame
-    let before = match primary_window.start_frame() {
+    let before = match primary_window.acquire() {
         Err(e) => {
             bevy::log::error!("Failed to start frame: {}", e);
             return;
@@ -91,12 +91,12 @@ fn my_pipeline_render_system(
     };
 
     // Access the swapchain image directly
-    let final_image = primary_window.final_image();
+    let final_image = primary_window.swapchain_image_view();
     // Draw your pipeline
     let after_your_pipeline = pipeline.draw(final_image);
     
-    // Finish Frame by passing your last future
-    primary_window.finish_frame(after_your_pipeline);
+    // Finish Frame by passing your last future. Wait on the future if needed.
+    primary_window.present(after_your_pipeline, true);
 }
 ```
 
@@ -107,7 +107,7 @@ This library re-exports `egui_winit_vulkano`.
 Add following to your `Cargo.toml`:
 ```toml
 [dependencies.bevy]
-version = "0.7"
+version = "newest"
 default-features = false
 # Add features you need, but don't add "render". This might disable a lot of features you wanted... e.g SpritePlugin
 features = []

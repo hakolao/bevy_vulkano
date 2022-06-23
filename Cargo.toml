@@ -17,14 +17,14 @@ example_has_gui = ["gui"]
 gui = ["egui_winit_vulkano"]
 
 [dependencies]
-vulkano = "0.29.0"
-vulkano-win = "0.29.0"
-vulkano-shaders = "0.29.0"
-egui_winit_vulkano = { version = "0.17", optional = true }
-raw-window-handle = { version = "0.4" }
+vulkano = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "vulkano-util" }
+vulkano-util = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "vulkano-util" }
+vulkano-shaders = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "vulkano-util" }
+egui_winit_vulkano = { version = "0.17", optional = true, git = "https://github.com/hakolao/egui_winit_vulkano", branch = "prepare-lib-updates" }
 winit = "0.26.0"
 image = "0.23.14"
 approx = "0.5.1"
+raw-window-handle = "0.4"
 
 [dependencies.bevy]
 version = "0.7.0"

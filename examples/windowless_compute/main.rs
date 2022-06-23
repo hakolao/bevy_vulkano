@@ -1,5 +1,5 @@
 use bevy::{app::AppExit, prelude::*};
-use bevy_vulkano::{VulkanoContext, VulkanoWinitConfig, VulkanoWinitPlugin};
+use bevy_vulkano::{VulkanoWinitConfig, VulkanoWinitPlugin};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage},
@@ -8,6 +8,7 @@ use vulkano::{
     sync,
     sync::GpuFuture,
 };
+use vulkano_util::context::VulkanoContext;
 
 // https://github.com/vulkano-rs/vulkano/blob/master/examples/src/bin/basic-compute-shader.rs
 

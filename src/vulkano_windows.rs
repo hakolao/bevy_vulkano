@@ -1,28 +1,81 @@
 use bevy::{
     math::IVec2,
-    utils::HashMap,
-    window::{Window, WindowDescriptor, WindowId, WindowMode},
+    utils::{
+        hashbrown::hash_map::{Iter, IterMut},
+        HashMap,
+    },
+    window::{PresentMode, Window, WindowDescriptor, WindowId, WindowMode},
 };
+#[cfg(feature = "gui")]
+use egui_winit_vulkano::Gui;
 use raw_window_handle::HasRawWindowHandle;
+use vulkano_util::{
+    context::VulkanoContext,
+    renderer::VulkanoWindowRenderer,
+    window::{
+        WindowDescriptor as VulkanoWindowDescriptor,
+        WindowResizeConstraints as VulkanoWindowResizeConstraints,
+    },
+};
 use winit::dpi::LogicalSize;
 
-use crate::{VulkanoContext, VulkanoWindowRenderer, VulkanoWinitConfig};
+use crate::VulkanoWinitConfig;
 
-#[derive(Default)]
-pub struct VulkanoWindows {
-    pub windows: HashMap<winit::window::WindowId, VulkanoWindowRenderer>,
-    pub window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
-    pub winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
+fn window_descriptor_to_vulkano_window_descriptor(
+    wd: &WindowDescriptor,
+) -> VulkanoWindowDescriptor {
+    let mut window_descriptor = VulkanoWindowDescriptor::default();
+    window_descriptor.width = wd.width;
+    window_descriptor.height = wd.height;
+    window_descriptor.position = if wd.position.is_some() {
+        Some(wd.position.unwrap().into())
+    } else {
+        None
+    };
+    window_descriptor.resize_constraints = VulkanoWindowResizeConstraints {
+        min_width: wd.resize_constraints.min_width,
+        min_height: wd.resize_constraints.min_height,
+        max_width: wd.resize_constraints.max_width,
+        max_height: wd.resize_constraints.max_height,
+    };
+    window_descriptor.scale_factor_override = wd.scale_factor_override;
+    window_descriptor.title = wd.title.clone();
+    window_descriptor.present_mode = match wd.present_mode {
+        PresentMode::Fifo => vulkano::swapchain::PresentMode::Fifo,
+        PresentMode::Immediate => vulkano::swapchain::PresentMode::Immediate,
+        PresentMode::Mailbox => vulkano::swapchain::PresentMode::Mailbox,
+    };
+    window_descriptor.resizable = wd.resizable;
+    window_descriptor.decorations = wd.decorations;
+    window_descriptor.cursor_visible = wd.cursor_locked;
+    window_descriptor.mode = match wd.mode {
+        WindowMode::Windowed => vulkano_util::window::WindowMode::Windowed,
+        WindowMode::Fullscreen => vulkano_util::window::WindowMode::Fullscreen,
+        WindowMode::BorderlessFullscreen => vulkano_util::window::WindowMode::BorderlessFullscreen,
+        WindowMode::SizedFullscreen => vulkano_util::window::WindowMode::SizedFullscreen,
+    };
+    window_descriptor.transparent = wd.transparent;
+    window_descriptor
 }
 
-impl VulkanoWindows {
+#[derive(Default)]
+pub struct BevyVulkanoWindows {
+    #[cfg(not(feature = "gui"))]
+    pub(crate) windows: HashMap<winit::window::WindowId, VulkanoWindowRenderer>,
+    #[cfg(feature = "gui")]
+    pub(crate) windows: HashMap<winit::window::WindowId, (VulkanoWindowRenderer, Gui)>,
+    pub(crate) window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
+    pub(crate) winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
+}
+
+impl BevyVulkanoWindows {
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
         vulkano_context: &VulkanoContext,
-        vulkano_config: &VulkanoWinitConfig,
+        config: &VulkanoWinitConfig,
     ) -> Window {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
@@ -123,8 +176,9 @@ impl VulkanoWindows {
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
 
-        self.window_id_to_winit.insert(window_id, winit_window.id());
-        self.winit_to_window_id.insert(winit_window.id(), window_id);
+        let winit_id = winit_window.id();
+        self.window_id_to_winit.insert(window_id, winit_id);
+        self.winit_to_window_id.insert(winit_id, window_id);
 
         let position = winit_window
             .outer_position()
@@ -134,15 +188,26 @@ impl VulkanoWindows {
         let scale_factor = winit_window.scale_factor();
         let raw_window_handle = winit_window.raw_window_handle();
 
-        self.windows.insert(
-            winit_window.id(),
-            VulkanoWindowRenderer::new(
-                vulkano_context,
-                winit_window,
-                window_descriptor,
-                vulkano_config,
-            ),
+        let window_renderer = VulkanoWindowRenderer::new(
+            vulkano_context,
+            winit_window,
+            &window_descriptor_to_vulkano_window_descriptor(window_descriptor),
+            |_| {},
         );
+
+        let _is_gui_overlay = config.is_gui_overlay;
+        #[cfg(feature = "gui")]
+        {
+            let gui = Gui::new(
+                window_renderer.surface(),
+                window_renderer.graphics_queue(),
+                _is_gui_overlay,
+            );
+            self.windows.insert(winit_id, (window_renderer, gui));
+        }
+
+        #[cfg(not(feature = "gui"))]
+        self.windows.insert(winit_id, window_renderer);
 
         Window::new(
             window_id,
@@ -155,39 +220,99 @@ impl VulkanoWindows {
         )
     }
 
+    #[cfg(not(feature = "gui"))]
     pub fn get_primary_window_renderer_mut(&mut self) -> Option<&mut VulkanoWindowRenderer> {
         self.get_window_renderer_mut(WindowId::primary())
     }
 
+    #[cfg(not(feature = "gui"))]
     pub fn get_primary_window_renderer(&self) -> Option<&VulkanoWindowRenderer> {
         self.get_window_renderer(WindowId::primary())
     }
 
-    pub fn get_primary_winit_window(&self) -> Option<&winit::window::Window> {
-        self.get_winit_window(WindowId::primary())
-    }
-
+    #[cfg(not(feature = "gui"))]
     pub fn get_window_renderer_mut(&mut self, id: WindowId) -> Option<&mut VulkanoWindowRenderer> {
         self.window_id_to_winit
             .get(&id)
             .and_then(|id| self.windows.get_mut(id))
     }
 
+    #[cfg(not(feature = "gui"))]
     pub fn get_window_renderer(&self, id: WindowId) -> Option<&VulkanoWindowRenderer> {
         self.window_id_to_winit
             .get(&id)
             .and_then(|id| self.windows.get(id))
     }
 
+    #[cfg(feature = "gui")]
+    pub fn get_primary_window_renderer_mut(&mut self) -> Option<&mut (VulkanoWindowRenderer, Gui)> {
+        self.get_window_renderer_mut(WindowId::primary())
+    }
+
+    #[cfg(feature = "gui")]
+    pub fn get_primary_window_renderer(&self) -> Option<&(VulkanoWindowRenderer, Gui)> {
+        self.get_window_renderer(WindowId::primary())
+    }
+
+    #[cfg(feature = "gui")]
+    pub fn get_window_renderer_mut(
+        &mut self,
+        id: WindowId,
+    ) -> Option<&mut (VulkanoWindowRenderer, Gui)> {
+        self.window_id_to_winit
+            .get(&id)
+            .and_then(|id| self.windows.get_mut(id))
+    }
+
+    #[cfg(feature = "gui")]
+    pub fn get_window_renderer(&self, id: WindowId) -> Option<&(VulkanoWindowRenderer, Gui)> {
+        self.window_id_to_winit
+            .get(&id)
+            .and_then(|id| self.windows.get(id))
+    }
+
+    pub fn get_primary_winit_window(&self) -> Option<&winit::window::Window> {
+        self.get_winit_window(WindowId::primary())
+    }
+
+    #[cfg(feature = "gui")]
     pub fn get_winit_window(&self, id: WindowId) -> Option<&winit::window::Window> {
         self.window_id_to_winit
             .get(&id)
             .and_then(|id| self.windows.get(id))
-            .map(|v_window| v_window.window())
+            .map(|(v_window, _)| v_window.window())
+    }
+
+    #[cfg(not(feature = "gui"))]
+    pub fn get_winit_window(&self, id: WindowId) -> Option<&winit::window::Window> {
+        self.window_id_to_winit
+            .get(&id)
+            .and_then(|id| self.windows.get(id))
+            .map(|r| r.window())
     }
 
     pub fn get_window_id(&self, id: winit::window::WindowId) -> Option<WindowId> {
         self.winit_to_window_id.get(&id).cloned()
+    }
+
+    #[cfg(not(feature = "gui"))]
+    pub fn iter(&self) -> Iter<winit::window::WindowId, VulkanoWindowRenderer> {
+        self.windows.iter()
+    }
+
+    #[cfg(not(feature = "gui"))]
+    pub fn iter_mut(&mut self) -> IterMut<winit::window::WindowId, VulkanoWindowRenderer> {
+        self.windows.iter_mut()
+    }
+
+    #[cfg(feature = "gui")]
+    pub fn iter(&self) -> Iter<winit::window::WindowId, (VulkanoWindowRenderer, Gui)> {
+        self.windows.iter()
+    }
+
+    #[cfg(feature = "gui")]
+    pub fn iter_mut(&mut self) -> IterMut<winit::window::WindowId, (VulkanoWindowRenderer, Gui)> {
+        self.windows.iter_mut()
     }
 }
 

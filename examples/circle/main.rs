@@ -7,6 +7,7 @@ use bevy::{
 };
 use bevy_vulkano::{VulkanoWinitConfig, VulkanoWinitPlugin};
 use vulkano::device::Features;
+use vulkano_util::context::VulkanoConfig;
 
 use crate::render_system_plugin::MainRenderPlugin;
 
@@ -31,9 +32,12 @@ impl PluginGroup for PluginBundle {
 fn main() {
     App::new()
         .insert_resource(VulkanoWinitConfig {
-            features: Features {
-                fill_mode_non_solid: true,
-                ..Features::none()
+            vulkano_config: VulkanoConfig {
+                device_features: Features {
+                    fill_mode_non_solid: true,
+                    ..Features::none()
+                },
+                ..VulkanoConfig::default()
             },
             ..VulkanoWinitConfig::default()
         })

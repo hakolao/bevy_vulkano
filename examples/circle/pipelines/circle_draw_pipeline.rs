@@ -23,6 +23,7 @@ use crate::pipelines::{command_buffer_builder, textured_quad, TextVertex};
 pub struct CircleDrawPipeline {
     gfx_queue: Arc<Queue>,
     pipeline: Arc<GraphicsPipeline>,
+    subpass: Subpass,
     vertices: Arc<CpuAccessibleBuffer<[TextVertex]>>,
     indices: Arc<CpuAccessibleBuffer<[u32]>>,
 }
@@ -42,7 +43,7 @@ impl CircleDrawPipeline {
                 .input_assembly_state(InputAssemblyState::new())
                 .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
                 .color_blend_state(ColorBlendState::new(1).blend_alpha())
-                .render_pass(subpass)
+                .render_pass(subpass.clone())
                 .build(gfx_queue.device().clone())?
         };
         let (v, i) = textured_quad([0.0; 4], 2.0, 2.0);
@@ -61,6 +62,7 @@ impl CircleDrawPipeline {
         Ok(CircleDrawPipeline {
             gfx_queue,
             pipeline,
+            subpass,
             vertices,
             indices,
         })
@@ -80,8 +82,7 @@ impl CircleDrawPipeline {
             world_pos: pos.to_array(),
             radius,
         };
-        let mut builder =
-            command_buffer_builder(self.gfx_queue.clone(), self.pipeline.subpass().clone())?;
+        let mut builder = command_buffer_builder(self.gfx_queue.clone(), self.subpass.clone())?;
         let index_count = self.indices.len() as u32;
         builder
             .bind_pipeline_graphics(self.pipeline.clone())

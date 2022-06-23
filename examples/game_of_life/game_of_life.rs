@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use bevy::math::IVec2;
-use bevy_vulkano::{create_device_image, DeviceImageView};
 use rand::Rng;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
@@ -18,10 +17,11 @@ use vulkano::{
     descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     device::Queue,
     format::Format,
-    image::ImageAccess,
+    image::{ImageAccess, ImageUsage, StorageImage},
     pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
     sync::GpuFuture,
 };
+use vulkano_util::renderer::DeviceImageView;
 
 /// Pipeline holding double buffered grid & color image.
 /// Grids are used to calculate the state, and color image is used to show the output.
@@ -65,7 +65,19 @@ impl GameOfLifeComputePipeline {
             .unwrap()
         };
 
-        let image = create_device_image(compute_queue.clone(), size, Format::R8G8B8A8_UNORM);
+        let image = StorageImage::general_purpose_image_view(
+            compute_queue.clone(),
+            size,
+            Format::R8G8B8A8_UNORM,
+            ImageUsage {
+                sampled: true,
+                storage: true,
+                color_attachment: true,
+                transfer_dst: true,
+                ..ImageUsage::none()
+            },
+        )
+        .unwrap();
         GameOfLifeComputePipeline {
             compute_queue,
             compute_life_pipeline,

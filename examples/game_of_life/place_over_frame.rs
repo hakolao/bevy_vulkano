@@ -9,15 +9,17 @@
 
 use std::sync::Arc;
 
-use bevy_vulkano::{DeviceImageView, FinalImageView};
 use vulkano::{
-    command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SubpassContents},
+    command_buffer::{
+        AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents,
+    },
     device::Queue,
     format::Format,
     image::ImageAccess,
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
     sync::GpuFuture,
 };
+use vulkano_util::renderer::{DeviceImageView, SwapchainImageView};
 
 use crate::pixels_draw_pipeline::PixelsDrawPipeline;
 
@@ -60,7 +62,7 @@ impl RenderPassPlaceOverFrame {
         &mut self,
         before_future: F,
         view: DeviceImageView,
-        target: FinalImageView,
+        target: SwapchainImageView,
     ) -> Box<dyn GpuFuture>
     where
         F: GpuFuture + 'static,
@@ -82,9 +84,13 @@ impl RenderPassPlaceOverFrame {
         .unwrap();
         // Begin render pass
         command_buffer_builder
-            .begin_render_pass(framebuffer, SubpassContents::SecondaryCommandBuffers, vec![
-                [0.0; 4].into(),
-            ])
+            .begin_render_pass(
+                RenderPassBeginInfo {
+                    clear_values: vec![Some([0.0; 4].into())],
+                    ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
+                },
+                SubpassContents::SecondaryCommandBuffers,
+            )
             .unwrap();
         // Create secondary command buffer from texture pipeline & send draw commands
         let cb = self
