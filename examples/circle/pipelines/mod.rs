@@ -70,7 +70,7 @@ pub fn command_buffer_builder(
         gfx_queue.family(),
         CommandBufferUsage::MultipleSubmit,
         CommandBufferInheritanceInfo {
-            render_pass: Some(subpass.clone().into()),
+            render_pass: Some(subpass.into()),
             ..Default::default()
         },
     )?;

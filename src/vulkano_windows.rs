@@ -1,3 +1,5 @@
+#![allow(clippy::field_reassign_with_default)]
+
 use bevy::{
     math::IVec2,
     utils::{

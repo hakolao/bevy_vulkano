@@ -87,7 +87,7 @@ impl RenderPassPlaceOverFrame {
             .begin_render_pass(
                 RenderPassBeginInfo {
                     clear_values: vec![Some([0.0; 4].into())],
-                    ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
+                    ..RenderPassBeginInfo::framebuffer(framebuffer)
                 },
                 SubpassContents::SecondaryCommandBuffers,
             )
