@@ -31,7 +31,7 @@ impl PluginGroup for PluginBundle {
 
 fn main() {
     App::new()
-        .insert_resource(VulkanoWinitConfig {
+        .insert_non_send_resource(VulkanoWinitConfig {
             vulkano_config: VulkanoConfig {
                 device_features: Features {
                     fill_mode_non_solid: true,

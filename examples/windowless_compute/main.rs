@@ -14,7 +14,7 @@ use vulkano_util::context::VulkanoContext;
 
 fn main() {
     App::new()
-        .insert_resource(VulkanoWinitConfig {
+        .insert_non_send_resource(VulkanoWinitConfig {
             // No window...
             add_primary_window: false,
             ..VulkanoWinitConfig::default()

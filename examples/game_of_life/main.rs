@@ -32,7 +32,7 @@ impl PluginGroup for PluginBundle {
 
 fn main() {
     App::new()
-        .insert_resource(VulkanoWinitConfig::default())
+        .insert_non_send_resource(VulkanoWinitConfig::default())
         .insert_resource(WindowDescriptor {
             width: 1024.0,
             height: 1024.0,
@@ -57,7 +57,7 @@ fn main() {
         .run();
 }
 
-fn update_window_title_system(vulkano_windows: Res<BevyVulkanoWindows>, time: ResMut<Time>) {
+fn update_window_title_system(vulkano_windows: NonSend<BevyVulkanoWindows>, time: ResMut<Time>) {
     let primary = vulkano_windows
         .get_winit_window(WindowId::primary())
         .unwrap();
@@ -66,7 +66,7 @@ fn update_window_title_system(vulkano_windows: Res<BevyVulkanoWindows>, time: Re
 }
 
 /// Creates our simulation pipeline & render pipeline
-fn create_pipelines(mut commands: Commands, vulkano_windows: Res<BevyVulkanoWindows>) {
+fn create_pipelines(mut commands: Commands, vulkano_windows: NonSend<BevyVulkanoWindows>) {
     let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
     // Create compute pipeline to simulate game of life
     let game_of_life_pipeline =
@@ -113,7 +113,7 @@ fn draw_life_system(
 /// All render occurs here in one system. If you want to split systems to separate, use
 /// `PipelineSyncData` to update futures. You could have `pre_render_system` and `post_render_system` to start and finish frames
 fn game_of_life_pipeline_system(
-    mut vulkano_windows: ResMut<BevyVulkanoWindows>,
+    mut vulkano_windows: NonSendMut<BevyVulkanoWindows>,
     mut game_of_life: ResMut<GameOfLifeComputePipeline>,
     mut place_over_frame: ResMut<RenderPassPlaceOverFrame>,
 ) {

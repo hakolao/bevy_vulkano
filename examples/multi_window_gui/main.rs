@@ -38,7 +38,7 @@ fn main() {
 #[cfg(feature = "example_has_gui")]
 fn main() {
     App::new()
-        .insert_resource(VulkanoWinitConfig {
+        .insert_non_send_resource(VulkanoWinitConfig {
             // Since we're only drawing gui, let's clear each frame
             is_gui_overlay: true,
             ..VulkanoWinitConfig::default()
@@ -103,7 +103,7 @@ fn create_new_window_on_space_system(
 }
 
 #[cfg(feature = "example_has_gui")]
-pub fn main_render_system_primary_window(mut vulkano_windows: ResMut<BevyVulkanoWindows>) {
+pub fn main_render_system_primary_window(mut vulkano_windows: NonSendMut<BevyVulkanoWindows>) {
     let (window_renderer, gui) = vulkano_windows.get_primary_window_renderer_mut().unwrap();
     // Start Frame
     let before = match window_renderer.acquire() {
@@ -128,7 +128,7 @@ pub fn main_render_system_primary_window(mut vulkano_windows: ResMut<BevyVulkano
 }
 
 #[cfg(feature = "example_has_gui")]
-pub fn main_render_system_secondary_window(mut vulkano_windows: ResMut<BevyVulkanoWindows>) {
+pub fn main_render_system_secondary_window(mut vulkano_windows: NonSendMut<BevyVulkanoWindows>) {
     let primary_window_id = vulkano_windows.get_primary_winit_window().unwrap().id();
     for (window_id, (window_renderer, gui)) in vulkano_windows.iter_mut() {
         // Skip primary window

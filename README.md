@@ -38,7 +38,7 @@ fn main() {
     App::new()
         // Vulkano configs (Modify this if you want to add features to vulkano (vulkan backend).
         // You can also disable primary window opening here
-        .insert_resource(VulkanoWinitConfig::default())
+        .insert_non_send_resource(VulkanoWinitConfig::default())
         // Window configs for primary window
         .insert_resource(WindowDescriptor {
             width: 1920.0,
@@ -58,7 +58,7 @@ fn main() {
 
 ```rust
 /// Creates a render pipeline. Add this system with app.add_startup_system(create_pipelines).
-fn create_pipelines_system(mut commands: Commands, vulkano_windows: Res<VulkanoWindows>) {
+fn create_pipelines_system(mut commands: Commands, vulkano_windows: NonSend<VulkanoWindows>) {
     let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
     // Create your render pass & pipelines (MyRenderPass could contain your pipelines, e.g. draw_circle)
     let my_pipeline = YourPipeline::new(
@@ -77,7 +77,7 @@ fn create_pipelines_system(mut commands: Commands, vulkano_windows: Res<VulkanoW
 /// This system should be added either at `CoreStage::PostUpdate` or `CoreStage::Last`. You could also create your own
 /// render stage and place it after `CoreStage::Update`.
 fn my_pipeline_render_system(
-    mut vulkano_windows: ResMut<VulkanoWindows>,
+    mut vulkano_windows: NonSendMut<VulkanoWindows>,
     mut pipeline: ResMut<YourPipeline>,
 ) {
     let primary_window = vulkano_windows.get_primary_window_renderer_mut().unwrap();

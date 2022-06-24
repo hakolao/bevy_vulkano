@@ -76,7 +76,7 @@ impl Plugin for MainRenderPlugin {
 }
 
 /// Insert our render pass at startup
-fn insert_render_pass_system(mut commands: Commands, vulkano_windows: Res<BevyVulkanoWindows>) {
+fn insert_render_pass_system(mut commands: Commands, vulkano_windows: NonSend<BevyVulkanoWindows>) {
     #[cfg(feature = "example_has_gui")]
     let (window_renderer, _) = vulkano_windows.get_primary_window_renderer().unwrap();
     #[cfg(not(feature = "example_has_gui"))]
@@ -89,7 +89,7 @@ fn insert_render_pass_system(mut commands: Commands, vulkano_windows: Res<BevyVu
 
 /// Starts frame, updates before pipeline future & final image view
 fn pre_render_setup_system(
-    mut vulkano_windows: ResMut<BevyVulkanoWindows>,
+    mut vulkano_windows: NonSendMut<BevyVulkanoWindows>,
     mut pipeline_frame_data: ResMut<PipelineSyncData>,
 ) {
     for (window_id, mut frame_data) in pipeline_frame_data.data_per_window.iter_mut() {
@@ -121,7 +121,7 @@ fn pre_render_setup_system(
 
 /// If rendering was successful, draw gui & finish frame
 fn post_render_system(
-    mut vulkano_windows: ResMut<BevyVulkanoWindows>,
+    mut vulkano_windows: NonSendMut<BevyVulkanoWindows>,
     mut pipeline_frame_data: ResMut<PipelineSyncData>,
 ) {
     for (window_id, frame_data) in pipeline_frame_data.data_per_window.iter_mut() {
@@ -156,7 +156,7 @@ fn post_render_system(
 // Only draw primary now...
 // You could render different windows in their own systems...
 pub fn main_render_system(
-    mut vulkano_windows: ResMut<BevyVulkanoWindows>,
+    mut vulkano_windows: NonSendMut<BevyVulkanoWindows>,
     mut pipeline_frame_data: ResMut<PipelineSyncData>,
     mut render_pass_deferred: ResMut<RenderPassDeferred>,
 ) {
@@ -208,14 +208,14 @@ pub fn main_render_system(
 }
 
 #[cfg(feature = "example_has_gui")]
-fn set_gui_styles_system(vulkano_windows: Res<BevyVulkanoWindows>) {
+fn set_gui_styles_system(vulkano_windows: NonSend<BevyVulkanoWindows>) {
     let (_primary_window_renderer, gui) = vulkano_windows.get_primary_window_renderer().unwrap();
     let _ctx = gui.context();
     // Set styles here... for primary window
 }
 
 #[cfg(feature = "example_has_gui")]
-fn main_gui_system(vulkano_windows: Res<BevyVulkanoWindows>, diagnostics: Res<Diagnostics>) {
+fn main_gui_system(vulkano_windows: NonSend<BevyVulkanoWindows>, diagnostics: Res<Diagnostics>) {
     let (_primary_window_renderer, gui) = vulkano_windows.get_primary_window_renderer().unwrap();
     let ctx = gui.context();
     egui::Area::new("fps")
