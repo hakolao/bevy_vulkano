@@ -17,9 +17,9 @@ example_has_gui = ["gui"]
 gui = ["egui_winit_vulkano"]
 
 [dependencies]
-vulkano = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "vulkano-util" }
-vulkano-util = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "vulkano-util" }
-vulkano-shaders = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "vulkano-util" }
+vulkano = { version = "0.29.0", git = "https://github.com/vulkano-rs/vulkano", ref = "18f6833" }
+vulkano-util = { version = "0.29.0", git = "https://github.com/vulkano-rs/vulkano", ref = "18f6833" }
+vulkano-shaders = { version = "0.29.0", git = "https://github.com/vulkano-rs/vulkano", ref = "18f6833" }
 egui_winit_vulkano = { version = "0.17", optional = true, git = "https://github.com/hakolao/egui_winit_vulkano", branch = "prepare-lib-updates"  }
 winit = "0.26.0"
 image = "0.23.14"
