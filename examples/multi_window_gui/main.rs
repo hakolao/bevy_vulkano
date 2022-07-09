@@ -72,7 +72,7 @@ fn create_new_window_system(mut create_window_events: EventWriter<CreateWindow>)
         descriptor: WindowDescriptor {
             width: 512.,
             height: 512.,
-            vsync: true,
+            present_mode: bevy::window::PresentMode::Fifo,
             title: "Secondary window".to_string(),
             ..Default::default()
         },
@@ -92,7 +92,7 @@ fn create_new_window_on_space_system(
             descriptor: WindowDescriptor {
                 width: 512.,
                 height: 512.,
-                vsync: true,
+                present_mode: bevy::window::PresentMode::Fifo,
                 title: "Secondary window".to_string(),
                 ..Default::default()
             },
