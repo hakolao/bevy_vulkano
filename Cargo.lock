@@ -1090,7 +1090,7 @@ dependencies = [
 [[package]]
 name = "egui_winit_vulkano"
 version = "0.17.0"
-source = "git+https://github.com/hakolao/egui_winit_vulkano?branch=prepare-lib-updates#a334de80688f52565bfa6c36d6774d3cd68f3ef3"
+source = "git+https://github.com/hakolao/egui_winit_vulkano?branch=master#df301d8a1b3fd7781c88cff77debdd9b8f90a6af"
 dependencies = [
  "ahash",
  "bytemuck",

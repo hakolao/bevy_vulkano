@@ -20,7 +20,7 @@ gui = ["egui_winit_vulkano"]
 vulkano = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "master" }
 vulkano-util = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "master" }
 vulkano-shaders = { version = "0.29.0", git = "https://github.com/hakolao/vulkano", branch = "master" }
-egui_winit_vulkano = { version = "0.17", optional = true, git = "https://github.com/hakolao/egui_winit_vulkano", branch = "prepare-lib-updates"  }
+egui_winit_vulkano = { version = "0.17", optional = true, git = "https://github.com/hakolao/egui_winit_vulkano", branch = "master"  }
 winit = "0.26.0"
 image = "0.23.14"
 approx = "0.5.1"
