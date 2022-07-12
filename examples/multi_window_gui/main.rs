@@ -1,6 +1,4 @@
 #[cfg(feature = "example_has_gui")]
-use bevy::window::PresentMode;
-#[cfg(feature = "example_has_gui")]
 use bevy::{
     app::PluginGroupBuilder,
     input::system::exit_on_esc_system,
@@ -47,7 +45,7 @@ fn main() {
             width: 1920.0,
             height: 1080.0,
             title: "Bevy Vulkano Primary Window".to_string(),
-            present_mode: PresentMode::Immediate,
+            present_mode: bevy::window::PresentMode::Fifo,
             resizable: true,
             mode: WindowMode::Windowed,
             ..WindowDescriptor::default()
@@ -74,7 +72,7 @@ fn create_new_window_system(mut create_window_events: EventWriter<CreateWindow>)
         descriptor: WindowDescriptor {
             width: 512.,
             height: 512.,
-            present_mode: PresentMode::Fifo,
+            present_mode: bevy::window::PresentMode::Fifo,
             title: "Secondary window".to_string(),
             ..Default::default()
         },
@@ -94,7 +92,7 @@ fn create_new_window_on_space_system(
             descriptor: WindowDescriptor {
                 width: 512.,
                 height: 512.,
-                present_mode: PresentMode::Fifo,
+                present_mode: bevy::window::PresentMode::Fifo,
                 title: "Secondary window".to_string(),
                 ..Default::default()
             },
