@@ -4,7 +4,7 @@ use anyhow::*;
 use vulkano::{
     command_buffer::{
         AutoCommandBufferBuilder, CommandBufferUsage, PrimaryAutoCommandBuffer,
-        SecondaryCommandBuffer, SubpassContents,
+        RenderPassBeginInfo, SecondaryCommandBuffer, SubpassContents,
     },
     device::{Device, Queue},
     format::Format,
@@ -98,9 +98,11 @@ impl RenderPassDeferred {
             CommandBufferUsage::OneTimeSubmit,
         )?;
         command_buffer_builder.begin_render_pass(
-            framebuffer.clone(),
+            RenderPassBeginInfo {
+                clear_values: vec![Some(clear_color.into())],
+                ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
+            },
             SubpassContents::SecondaryCommandBuffers,
-            vec![clear_color.into()],
         )?;
         Ok(Frame {
             system: self,

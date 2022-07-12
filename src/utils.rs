@@ -6,19 +6,11 @@ use std::sync::{
 use image::RgbaImage;
 use vulkano::{
     device::Queue,
-    format::Format,
     image::{
-        view::ImageView, ImageCreateFlags, ImageCreationError, ImageDimensions, ImageUsage,
-        ImageViewAbstract, ImmutableImage, MipmapsCount, StorageImage, SwapchainImage,
+        immutable::ImmutableImageCreationError, view::ImageView, ImageDimensions,
+        ImageViewAbstract, ImmutableImage, MipmapsCount,
     },
-    instance::InstanceExtensions,
 };
-use winit::window::Window;
-
-/// Final render target onto which whole app is rendered
-pub type FinalImageView = Arc<ImageView<SwapchainImage<Window>>>;
-/// Multipurpose image view
-pub type DeviceImageView = Arc<ImageView<StorageImage>>;
 
 fn create_image_texture_id() -> ImageTextureId {
     static COUNTER: AtomicUsize = AtomicUsize::new(1);
@@ -42,69 +34,11 @@ impl Default for ImageTextureId {
     }
 }
 
-pub const DEFAULT_IMAGE_FORMAT: Format = Format::R8G8B8A8_UNORM;
-
-/// Creates a storage image on device
-#[allow(unused)]
-pub fn create_device_image(queue: Arc<Queue>, size: [u32; 2], format: Format) -> DeviceImageView {
-    let dims = ImageDimensions::Dim2d {
-        width: size[0],
-        height: size[1],
-        array_layers: 1,
-    };
-    let flags = ImageCreateFlags::none();
-    ImageView::new_default(
-        StorageImage::with_usage(
-            queue.device().clone(),
-            dims,
-            format,
-            ImageUsage {
-                sampled: true,
-                storage: true,
-                color_attachment: true,
-                transfer_destination: true,
-                ..ImageUsage::none()
-            },
-            flags,
-            Some(queue.family()),
-        )
-        .unwrap(),
-    )
-    .unwrap()
-}
-
-#[allow(unused)]
-pub fn create_device_image_with_usage(
-    queue: Arc<Queue>,
-    size: [u32; 2],
-    format: Format,
-    usage: ImageUsage,
-) -> DeviceImageView {
-    let dims = ImageDimensions::Dim2d {
-        width: size[0],
-        height: size[1],
-        array_layers: 1,
-    };
-    let flags = ImageCreateFlags::none();
-    ImageView::new_default(
-        StorageImage::with_usage(
-            queue.device().clone(),
-            dims,
-            format,
-            usage,
-            flags,
-            Some(queue.family()),
-        )
-        .unwrap(),
-    )
-    .unwrap()
-}
-
-pub fn texture_from_file(
+pub fn texture_from_file_bytes(
     queue: Arc<Queue>,
     file_bytes: &[u8],
     format: vulkano::format::Format,
-) -> Result<Arc<dyn ImageViewAbstract + Send + Sync + 'static>, ImageCreationError> {
+) -> Result<Arc<dyn ImageViewAbstract + Send + Sync + 'static>, ImmutableImageCreationError> {
     use image::GenericImageView;
 
     let img = image::load_from_memory(file_bytes).expect("Failed to load image from bytes");
@@ -132,26 +66,4 @@ pub fn texture_from_file(
     let (texture, _tex_fut) =
         ImmutableImage::from_iter(rgba.into_iter(), vko_dims, MipmapsCount::One, format, queue)?;
     Ok(ImageView::new_default(texture).unwrap())
-}
-
-/// Copied from vulkano winit (one less winit dep...)
-pub fn required_extensions() -> InstanceExtensions {
-    let ideal = InstanceExtensions {
-        khr_surface: true,
-        khr_xlib_surface: true,
-        khr_xcb_surface: true,
-        khr_wayland_surface: true,
-        khr_android_surface: true,
-        khr_win32_surface: true,
-        mvk_ios_surface: true,
-        mvk_macos_surface: true,
-        khr_get_physical_device_properties2: true,
-        khr_get_surface_capabilities2: true,
-        ..InstanceExtensions::none()
-    };
-
-    match InstanceExtensions::supported_by_core() {
-        Ok(supported) => supported.intersection(&ideal),
-        Err(_) => InstanceExtensions::none(),
-    }
 }

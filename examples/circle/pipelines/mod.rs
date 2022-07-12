@@ -6,7 +6,10 @@ use anyhow::*;
 use bytemuck::{Pod, Zeroable};
 pub use circle_draw_pipeline::*;
 use vulkano::{
-    command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SecondaryAutoCommandBuffer},
+    command_buffer::{
+        AutoCommandBufferBuilder, CommandBufferInheritanceInfo, CommandBufferUsage,
+        SecondaryAutoCommandBuffer,
+    },
     descriptor_set::{layout::DescriptorSetLayout, PersistentDescriptorSet, WriteDescriptorSet},
     device::Queue,
     image::ImageViewAbstract,
@@ -62,11 +65,14 @@ pub fn command_buffer_builder(
     gfx_queue: Arc<Queue>,
     subpass: Subpass,
 ) -> Result<AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>> {
-    let builder = AutoCommandBufferBuilder::secondary_graphics(
+    let builder = AutoCommandBufferBuilder::secondary(
         gfx_queue.device().clone(),
         gfx_queue.family(),
         CommandBufferUsage::MultipleSubmit,
-        subpass,
+        CommandBufferInheritanceInfo {
+            render_pass: Some(subpass.into()),
+            ..Default::default()
+        },
     )?;
     Ok(builder)
 }

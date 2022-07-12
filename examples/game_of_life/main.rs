@@ -11,7 +11,7 @@ use bevy::{
     prelude::*,
     window::{WindowId, WindowMode},
 };
-use bevy_vulkano::{VulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin};
+use bevy_vulkano::{BevyVulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin};
 use vulkano::image::ImageAccess;
 
 use crate::{game_of_life::GameOfLifeComputePipeline, place_over_frame::RenderPassPlaceOverFrame};
@@ -32,7 +32,7 @@ impl PluginGroup for PluginBundle {
 
 fn main() {
     App::new()
-        .insert_resource(VulkanoWinitConfig::default())
+        .insert_non_send_resource(VulkanoWinitConfig::default())
         .insert_resource(WindowDescriptor {
             width: 1024.0,
             height: 1024.0,
@@ -57,7 +57,7 @@ fn main() {
         .run();
 }
 
-fn update_window_title_system(vulkano_windows: Res<VulkanoWindows>, time: ResMut<Time>) {
+fn update_window_title_system(vulkano_windows: NonSend<BevyVulkanoWindows>, time: ResMut<Time>) {
     let primary = vulkano_windows
         .get_winit_window(WindowId::primary())
         .unwrap();
@@ -66,7 +66,7 @@ fn update_window_title_system(vulkano_windows: Res<VulkanoWindows>, time: ResMut
 }
 
 /// Creates our simulation pipeline & render pipeline
-fn create_pipelines(mut commands: Commands, vulkano_windows: Res<VulkanoWindows>) {
+fn create_pipelines(mut commands: Commands, vulkano_windows: NonSend<BevyVulkanoWindows>) {
     let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
     // Create compute pipeline to simulate game of life
     let game_of_life_pipeline =
@@ -113,14 +113,14 @@ fn draw_life_system(
 /// All render occurs here in one system. If you want to split systems to separate, use
 /// `PipelineSyncData` to update futures. You could have `pre_render_system` and `post_render_system` to start and finish frames
 fn game_of_life_pipeline_system(
-    mut vulkano_windows: ResMut<VulkanoWindows>,
+    mut vulkano_windows: NonSendMut<BevyVulkanoWindows>,
     mut game_of_life: ResMut<GameOfLifeComputePipeline>,
     mut place_over_frame: ResMut<RenderPassPlaceOverFrame>,
 ) {
     let primary_window = vulkano_windows.get_primary_window_renderer_mut().unwrap();
 
     // Start frame
-    let before = match primary_window.start_frame() {
+    let before = match primary_window.acquire() {
         Err(e) => {
             bevy::log::error!("Failed to start frame: {}", e);
             return;
@@ -130,9 +130,9 @@ fn game_of_life_pipeline_system(
 
     let after_compute = game_of_life.compute(before, [1.0, 0.0, 0.0, 1.0], [0.0; 4]);
     let color_image = game_of_life.color_image();
-    let final_image = primary_window.final_image();
+    let final_image = primary_window.swapchain_image_view();
     let after_render = place_over_frame.render(after_compute, color_image, final_image);
 
     // Finish Frame
-    primary_window.finish_frame(after_render);
+    primary_window.present(after_render, true);
 }

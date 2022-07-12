@@ -12,7 +12,10 @@ use std::sync::Arc;
 use bytemuck::{Pod, Zeroable};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
-    command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, SecondaryAutoCommandBuffer},
+    command_buffer::{
+        AutoCommandBufferBuilder, CommandBufferInheritanceInfo, CommandBufferUsage,
+        SecondaryAutoCommandBuffer,
+    },
     descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
     device::Queue,
     image::ImageViewAbstract,
@@ -65,6 +68,7 @@ pub fn textured_quad(width: f32, height: f32) -> (Vec<TexturedVertex>, Vec<u32>)
 pub struct PixelsDrawPipeline {
     gfx_queue: Arc<Queue>,
     pipeline: Arc<GraphicsPipeline>,
+    subpass: Subpass,
     vertices: Arc<CpuAccessibleBuffer<[TexturedVertex]>>,
     indices: Arc<CpuAccessibleBuffer<[u32]>>,
 }
@@ -96,13 +100,14 @@ impl PixelsDrawPipeline {
                 .input_assembly_state(InputAssemblyState::new())
                 .fragment_shader(fs.entry_point("main").unwrap(), ())
                 .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-                .render_pass(subpass)
+                .render_pass(subpass.clone())
                 .build(gfx_queue.device().clone())
                 .unwrap()
         };
         PixelsDrawPipeline {
             gfx_queue,
             pipeline,
+            subpass,
             vertices: vertex_buffer,
             indices: index_buffer,
         }
@@ -135,11 +140,14 @@ impl PixelsDrawPipeline {
         viewport_dimensions: [u32; 2],
         image: Arc<dyn ImageViewAbstract>,
     ) -> SecondaryAutoCommandBuffer {
-        let mut builder = AutoCommandBufferBuilder::secondary_graphics(
+        let mut builder = AutoCommandBufferBuilder::secondary(
             self.gfx_queue.device().clone(),
             self.gfx_queue.family(),
             CommandBufferUsage::MultipleSubmit,
-            self.pipeline.subpass().clone(),
+            CommandBufferInheritanceInfo {
+                render_pass: Some(self.subpass.clone().into()),
+                ..Default::default()
+            },
         )
         .unwrap();
         let desc_set = self.create_image_sampler_nearest(image);
