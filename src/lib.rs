@@ -472,8 +472,7 @@ pub fn winit_runner_with(mut app: App) {
                     ..
                 } => {
                     let world = app.world.cell();
-                    let mut vulkano_winit_windows =
-                        world.get_non_send_mut::<BevyVulkanoWindows>().unwrap();
+                    let vulkano_winit_windows = world.get_non_send::<BevyVulkanoWindows>().unwrap();
                     let mut windows = world.get_resource_mut::<Windows>().unwrap();
                     let window_id = if let Some(window_id) =
                         vulkano_winit_windows.get_window_id(winit_window_id)
