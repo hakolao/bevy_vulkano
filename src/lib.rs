@@ -184,7 +184,7 @@ fn update_on_resize_system(
 
 fn change_window(world: &mut World) {
     let world = world.cell();
-    let vulkano_winit_windows = world.get_non_send::<BevyVulkanoWindows>().unwrap();
+    let mut vulkano_winit_windows = world.get_non_send_mut::<BevyVulkanoWindows>().unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
 
     for bevy_window in windows.iter_mut() {
@@ -243,8 +243,26 @@ fn change_window(world: &mut World) {
                     );
                 }
                 bevy::window::WindowCommand::SetPresentMode {
-                    ..
-                } => (),
+                    present_mode,
+                } => {
+                    let present_mode = match present_mode {
+                        bevy::window::PresentMode::Fifo => vulkano::swapchain::PresentMode::Fifo,
+                        bevy::window::PresentMode::Immediate => {
+                            vulkano::swapchain::PresentMode::Immediate
+                        }
+                        bevy::window::PresentMode::Mailbox => {
+                            vulkano::swapchain::PresentMode::Mailbox
+                        }
+                    };
+                    let wr = {
+                        #[cfg(not(feature = "gui"))]
+                        let wr = vulkano_winit_windows.get_window_renderer_mut(id).unwrap();
+                        #[cfg(feature = "gui")]
+                        let (wr, _) = vulkano_winit_windows.get_window_renderer_mut(id).unwrap();
+                        wr
+                    };
+                    wr.set_present_mode(present_mode);
+                }
                 bevy::window::WindowCommand::SetResizable {
                     resizable,
                 } => {
@@ -454,7 +472,7 @@ pub fn winit_runner_with(mut app: App) {
                     ..
                 } => {
                     let world = app.world.cell();
-                    let vulkano_winit_windows =
+                    let mut vulkano_winit_windows =
                         world.get_non_send_mut::<BevyVulkanoWindows>().unwrap();
                     let mut windows = world.get_resource_mut::<Windows>().unwrap();
                     let window_id = if let Some(window_id) =

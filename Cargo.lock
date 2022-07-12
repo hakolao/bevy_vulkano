@@ -588,8 +588,8 @@ dependencies = [
  "image",
  "rand",
  "raw-window-handle",
- "vulkano",
- "vulkano-shaders",
+ "vulkano 0.29.0 (git+https://github.com/hakolao/vulkano?branch=master)",
+ "vulkano-shaders 0.29.0 (git+https://github.com/hakolao/vulkano?branch=master)",
  "vulkano-util",
  "winit",
 ]
@@ -1097,8 +1097,8 @@ dependencies = [
  "egui",
  "egui-winit",
  "image",
- "vulkano",
- "vulkano-shaders",
+ "vulkano 0.29.0 (git+https://github.com/vulkano-rs/vulkano)",
+ "vulkano-shaders 0.29.0 (git+https://github.com/vulkano-rs/vulkano)",
  "winit",
 ]
 
@@ -2625,6 +2625,30 @@ dependencies = [
 [[package]]
 name = "vulkano"
 version = "0.29.0"
+source = "git+https://github.com/hakolao/vulkano?branch=master#b83b21427f97a5c34fe5bf9a4908c86ace96457b"
+dependencies = [
+ "ash 0.37.0+1.3.209",
+ "bytemuck",
+ "crossbeam-queue",
+ "half",
+ "heck",
+ "indexmap",
+ "lazy_static",
+ "parking_lot 0.12.1",
+ "proc-macro2",
+ "quote",
+ "rangemap",
+ "regex",
+ "serde",
+ "serde_json",
+ "shared_library",
+ "smallvec",
+ "vk-parse",
+]
+
+[[package]]
+name = "vulkano"
+version = "0.29.0"
 source = "git+https://github.com/vulkano-rs/vulkano#18f68337a55e9ac030a17b362fb3b336b5d881ae"
 dependencies = [
  "ash 0.37.0+1.3.209",
@@ -2649,6 +2673,19 @@ dependencies = [
 [[package]]
 name = "vulkano-shaders"
 version = "0.29.0"
+source = "git+https://github.com/hakolao/vulkano?branch=master#b83b21427f97a5c34fe5bf9a4908c86ace96457b"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "shaderc",
+ "syn",
+ "vulkano 0.29.0 (git+https://github.com/hakolao/vulkano?branch=master)",
+]
+
+[[package]]
+name = "vulkano-shaders"
+version = "0.29.0"
 source = "git+https://github.com/vulkano-rs/vulkano#18f68337a55e9ac030a17b362fb3b336b5d881ae"
 dependencies = [
  "heck",
@@ -2656,15 +2693,15 @@ dependencies = [
  "quote",
  "shaderc",
  "syn",
- "vulkano",
+ "vulkano 0.29.0 (git+https://github.com/vulkano-rs/vulkano)",
 ]
 
 [[package]]
 name = "vulkano-util"
 version = "0.29.0"
-source = "git+https://github.com/vulkano-rs/vulkano#18f68337a55e9ac030a17b362fb3b336b5d881ae"
+source = "git+https://github.com/hakolao/vulkano?branch=master#b83b21427f97a5c34fe5bf9a4908c86ace96457b"
 dependencies = [
- "vulkano",
+ "vulkano 0.29.0 (git+https://github.com/hakolao/vulkano?branch=master)",
  "vulkano-win",
  "winit",
 ]
@@ -2672,13 +2709,13 @@ dependencies = [
 [[package]]
 name = "vulkano-win"
 version = "0.29.0"
-source = "git+https://github.com/vulkano-rs/vulkano#18f68337a55e9ac030a17b362fb3b336b5d881ae"
+source = "git+https://github.com/hakolao/vulkano?branch=master#b83b21427f97a5c34fe5bf9a4908c86ace96457b"
 dependencies = [
  "cocoa",
  "metal",
  "objc",
  "raw-window-handle",
- "vulkano",
+ "vulkano 0.29.0 (git+https://github.com/hakolao/vulkano?branch=master)",
  "winit",
 ]
 
