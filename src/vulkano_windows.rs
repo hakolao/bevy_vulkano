@@ -206,7 +206,6 @@ impl BevyVulkanoWindows {
                 window_renderer.surface(),
                 window_renderer.graphics_queue(),
                 _is_gui_overlay,
-                window_renderer.swapchain_format(),
             );
             self.windows.insert(winit_id, (window_renderer, gui));
         }
