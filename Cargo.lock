@@ -1090,7 +1090,7 @@ dependencies = [
 [[package]]
 name = "egui_winit_vulkano"
 version = "0.18.0"
-source = "git+https://github.com/hakolao/egui_winit_vulkano?branch=master#a59ea959d69d5a580ac4cb84a652f5347c1b7c23"
+source = "git+https://github.com/hakolao/egui_winit_vulkano?branch=fix-color-space#e204fa1aa349c09b64a9d4e0c8106183f206788e"
 dependencies = [
  "ahash",
  "bytemuck",
