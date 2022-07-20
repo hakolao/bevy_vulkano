@@ -20,7 +20,7 @@ gui = ["egui_winit_vulkano"]
 vulkano = "0.30.0"
 vulkano-util = "0.30.0"
 vulkano-shaders = "0.30.0"
-egui_winit_vulkano = { version = "0.18", optional = true, git = "https://github.com/hakolao/egui_winit_vulkano", branch = "fix-color-space"  }
+egui_winit_vulkano = { version = "0.18", optional = true }
 winit = "0.26.0"
 image = "0.23.14"
 approx = "0.5.1"
