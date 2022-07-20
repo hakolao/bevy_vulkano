@@ -104,21 +104,6 @@ fn my_pipeline_render_system(
 
 This library re-exports `egui_winit_vulkano`.
 
-Add following to your `Cargo.toml`:
-```toml
-[dependencies.bevy]
-version = "newest"
-default-features = false
-# Add features you need, but don't add "render". This might disable a lot of features you wanted... e.g SpritePlugin
-features = []
-
-[dependencies.bevy_vulkano]
-version = "0.2.0"
-default-features = false
-# gui or no gui...
-features = ["gui"]
-```
-
 ## Examples:
 ```bash
 cargo run --example circle --features example_has_gui
