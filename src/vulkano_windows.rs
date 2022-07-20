@@ -194,7 +194,9 @@ impl BevyVulkanoWindows {
             vulkano_context,
             winit_window,
             &window_descriptor_to_vulkano_window_descriptor(window_descriptor),
-            |_| {},
+            move |ci| {
+                ci.image_format = Some(vulkano::format::Format::B8G8R8A8_SRGB);
+            },
         );
 
         let _is_gui_overlay = config.is_gui_overlay;
