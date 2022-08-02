@@ -390,7 +390,7 @@ fn change_window(world: &mut World) {
         let mut window_close_events = world.resource_mut::<Events<WindowClosed>>();
         for id in removed_windows {
             let (app_close, window_close) =
-                close_window(id, &mut *vulkano_winit_windows, &mut *pipeline_sync_data);
+                close_window(id, &mut vulkano_winit_windows, &mut pipeline_sync_data);
             if app_close {
                 app_exit_events.send(AppExit);
             } else if window_close {
@@ -874,7 +874,7 @@ pub fn exit_on_window_close_system(
     mut pipeline_data: ResMut<PipelineSyncData>,
 ) {
     for event in window_close_requested_events.iter() {
-        let (app_close, window_close) = close_window(event.id, &mut *windows, &mut *pipeline_data);
+        let (app_close, window_close) = close_window(event.id, &mut windows, &mut pipeline_data);
         if app_close {
             app_exit_events.send(AppExit);
         } else if window_close {
@@ -893,7 +893,7 @@ fn close_window(
 ) -> (bool, bool) {
     // Close app on primary window exit
     if window_id == WindowId::primary() {
-        return (true, false);
+        (true, false)
     }
     // But don't close app on secondary window exit. Instead cleanup...
     else {
