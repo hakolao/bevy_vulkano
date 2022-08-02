@@ -1,4 +1,4 @@
-use bevy::{app::AppExit, prelude::*};
+use bevy::{app::AppExit, prelude::*, window::WindowSettings};
 use bevy_vulkano::{VulkanoWinitConfig, VulkanoWinitPlugin};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
@@ -14,12 +14,13 @@ use vulkano_util::context::VulkanoContext;
 
 fn main() {
     App::new()
-        .insert_non_send_resource(VulkanoWinitConfig {
-            // No window...
+        .insert_resource(WindowSettings {
+            // No window
             add_primary_window: false,
-            ..VulkanoWinitConfig::default()
+            ..WindowSettings::default()
         })
-        .add_plugin(VulkanoWinitPlugin::default())
+        .insert_non_send_resource(VulkanoWinitConfig::default())
+        .add_plugin(VulkanoWinitPlugin)
         .add_startup_system(run_compute_shader_once_then_exit)
         .run();
 }
