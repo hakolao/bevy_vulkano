@@ -19,21 +19,18 @@ use vulkano_util::{
         WindowResizeConstraints as VulkanoWindowResizeConstraints,
     },
 };
-use winit::dpi::LogicalSize;
+use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition};
 
 use crate::VulkanoWinitConfig;
 
 fn window_descriptor_to_vulkano_window_descriptor(
     wd: &WindowDescriptor,
+    position: Option<[f32; 2]>,
 ) -> VulkanoWindowDescriptor {
     let mut window_descriptor = VulkanoWindowDescriptor::default();
     window_descriptor.width = wd.width;
     window_descriptor.height = wd.height;
-    window_descriptor.position = if wd.position.is_some() {
-        Some(wd.position.unwrap().into())
-    } else {
-        None
-    };
+    window_descriptor.position = position;
     window_descriptor.resize_constraints = VulkanoWindowResizeConstraints {
         min_width: wd.resize_constraints.min_width,
         min_height: wd.resize_constraints.min_height,
@@ -46,6 +43,8 @@ fn window_descriptor_to_vulkano_window_descriptor(
         PresentMode::Fifo => vulkano::swapchain::PresentMode::Fifo,
         PresentMode::Immediate => vulkano::swapchain::PresentMode::Immediate,
         PresentMode::Mailbox => vulkano::swapchain::PresentMode::Mailbox,
+        PresentMode::AutoNoVsync => vulkano::swapchain::PresentMode::Immediate,
+        PresentMode::AutoVsync => vulkano::swapchain::PresentMode::FifoRelaxed,
     };
     window_descriptor.resizable = wd.resizable;
     window_descriptor.decorations = wd.decorations;
@@ -113,23 +112,54 @@ impl BevyVulkanoWindows {
                     ..
                 } = window_descriptor;
 
-                if let Some(position) = position {
-                    if let Some(sf) = scale_factor_override {
-                        winit_window_builder = winit_window_builder.with_position(
-                            winit::dpi::LogicalPosition::new(
-                                position[0] as f64,
-                                position[1] as f64,
-                            )
-                            .to_physical::<f64>(*sf),
-                        );
-                    } else {
-                        winit_window_builder =
-                            winit_window_builder.with_position(winit::dpi::LogicalPosition::new(
-                                position[0] as f64,
-                                position[1] as f64,
-                            ));
+                 match position {
+                    bevy::window::WindowPosition::Automatic => { /* Window manager will handle position */ }
+                     bevy::window::WindowPosition::Centered(monitor_selection) => {
+                        let maybe_monitor = match monitor_selection {
+                            bevy::window::MonitorSelection::Current => {
+                                bevy::log::warn!("Can't select current monitor on window creation!");
+                                None
+                            }
+                            bevy::window::MonitorSelection::Primary => event_loop.primary_monitor(),
+                            bevy::window::MonitorSelection::Number(n) => event_loop.available_monitors().nth(*n),
+                        };
+
+                        if let Some(monitor) = maybe_monitor {
+                            let screen_size = monitor.size();
+
+                            let scale_factor = scale_factor_override.unwrap_or(1.0);
+
+                            // Logical to physical window size
+                            let (width, height): (u32, u32) = LogicalSize::new(*width, *height)
+                                .to_physical::<u32>(scale_factor)
+                                .into();
+
+                            let position = PhysicalPosition {
+                                x: screen_size.width.saturating_sub(width) as f64 / 2.
+                                    + monitor.position().x as f64,
+                                y: screen_size.height.saturating_sub(height) as f64 / 2.
+                                    + monitor.position().y as f64,
+                            };
+
+                            winit_window_builder = winit_window_builder.with_position(position);
+                        } else {
+                            bevy::log::warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                        }
+                    }
+                     bevy::window::WindowPosition::At(position) => {
+                        if let Some(sf) = scale_factor_override {
+                            winit_window_builder = winit_window_builder.with_position(
+                                LogicalPosition::new(position[0] as f64, position[1] as f64)
+                                    .to_physical::<f64>(*sf),
+                            );
+                        } else {
+                            winit_window_builder = winit_window_builder.with_position(
+                                LogicalPosition::new(position[0] as f64, position[1] as f64),
+                            );
+                        }
                     }
                 }
+
                 if let Some(sf) = scale_factor_override {
                     winit_window_builder.with_inner_size(
                         winit::dpi::LogicalSize::new(*width, *height).to_physical::<f64>(*sf),
@@ -193,7 +223,10 @@ impl BevyVulkanoWindows {
         let window_renderer = VulkanoWindowRenderer::new(
             vulkano_context,
             winit_window,
-            &window_descriptor_to_vulkano_window_descriptor(window_descriptor),
+            &window_descriptor_to_vulkano_window_descriptor(
+                window_descriptor,
+                position.map(|p| [p.x as f32, p.y as f32]),
+            ),
             move |ci| {
                 ci.image_format = Some(vulkano::format::Format::B8G8R8A8_SRGB);
             },
@@ -204,6 +237,7 @@ impl BevyVulkanoWindows {
         {
             let gui = Gui::new(
                 window_renderer.surface(),
+                Some(window_renderer.swapchain_format()),
                 window_renderer.graphics_queue(),
                 _is_gui_overlay,
             );

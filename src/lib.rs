@@ -26,8 +26,8 @@ use bevy::{
     prelude::*,
     window::{
         CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-        WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
-        WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+        WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed, WindowCreated,
+        WindowFocused, WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
     },
 };
 #[cfg(feature = "gui")]
@@ -55,8 +55,6 @@ pub struct VulkanoWinitConfig {
     /// `openbsd`. If set to true on an unsupported platform
     /// [run](bevy_app::App::run) will panic.
     pub return_from_run: bool,
-    /// Whether pirmary window is created at start
-    pub add_primary_window: bool,
     /// Vulkano backend related configs
     pub vulkano_config: VulkanoConfig,
     /// Whether the image gets cleared each frame by gui integration. This is only relevant if
@@ -69,7 +67,6 @@ impl Default for VulkanoWinitConfig {
     fn default() -> Self {
         VulkanoWinitConfig {
             return_from_run: false,
-            add_primary_window: true,
             vulkano_config: VulkanoConfig::default(),
             is_gui_overlay: true,
         }
@@ -110,18 +107,11 @@ impl Plugin for VulkanoWinitPlugin {
         };
         app.insert_non_send_resource(new_config);
 
-        // Add WindowPlugin
-        let add_primary_window = config.add_primary_window;
-
         // Insert window plugin, vulkano context, windows resource & pipeline data
-        app.add_plugin(bevy::window::WindowPlugin {
-            add_primary_window,
-            // We don't want to run exit_on_close_system from WindowPlugin, because it closes the entire app on each window close
-            exit_on_close: false,
-        })
-        .init_non_send_resource::<BevyVulkanoWindows>()
-        .init_resource::<PipelineSyncData>()
-        .insert_resource(vulkano_context);
+        app.add_plugin(bevy::window::WindowPlugin)
+            .init_non_send_resource::<BevyVulkanoWindows>()
+            .init_resource::<PipelineSyncData>()
+            .insert_resource(vulkano_context);
 
         // Create initial window
         handle_initial_window_events(&mut app.world, &event_loop);
@@ -184,8 +174,14 @@ fn update_on_resize_system(
 
 fn change_window(world: &mut World) {
     let world = world.cell();
-    let mut vulkano_winit_windows = world.get_non_send_mut::<BevyVulkanoWindows>().unwrap();
+    let mut vulkano_winit_windows = world
+        .get_non_send_resource_mut::<BevyVulkanoWindows>()
+        .unwrap();
+    let mut pipeline_sync_data = world
+        .get_non_send_resource_mut::<PipelineSyncData>()
+        .unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
+    let mut removed_windows = vec![];
 
     for bevy_window in windows.iter_mut() {
         let id = bevy_window.id();
@@ -193,7 +189,7 @@ fn change_window(world: &mut World) {
             match command {
                 bevy::window::WindowCommand::SetWindowMode {
                     mode,
-                    resolution: (width, height),
+                    resolution,
                 } => {
                     let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     match mode {
@@ -208,8 +204,8 @@ fn change_window(world: &mut World) {
                         bevy::window::WindowMode::SizedFullscreen => window.set_fullscreen(Some(
                             winit::window::Fullscreen::Exclusive(get_fitting_videomode(
                                 &window.current_monitor().unwrap(),
-                                width,
-                                height,
+                                resolution.x,
+                                resolution.y,
                             )),
                         )),
                         bevy::window::WindowMode::Windowed => window.set_fullscreen(None),
@@ -233,12 +229,12 @@ fn change_window(world: &mut World) {
                     });
                 }
                 bevy::window::WindowCommand::SetResolution {
-                    logical_resolution: (width, height),
+                    logical_resolution,
                     scale_factor,
                 } => {
                     let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_inner_size(
-                        winit::dpi::LogicalSize::new(width, height)
+                        winit::dpi::LogicalSize::new(logical_resolution.x, logical_resolution.y)
                             .to_physical::<f64>(scale_factor),
                     );
                 }
@@ -246,6 +242,12 @@ fn change_window(world: &mut World) {
                     present_mode,
                 } => {
                     let present_mode = match present_mode {
+                        bevy::window::PresentMode::AutoVsync => {
+                            vulkano::swapchain::PresentMode::FifoRelaxed
+                        }
+                        bevy::window::PresentMode::AutoNoVsync => {
+                            vulkano::swapchain::PresentMode::Immediate
+                        }
                         bevy::window::PresentMode::Fifo => vulkano::swapchain::PresentMode::Fifo,
                         bevy::window::PresentMode::Immediate => {
                             vulkano::swapchain::PresentMode::Immediate
@@ -328,6 +330,32 @@ fn change_window(world: &mut World) {
                         y: position[1],
                     });
                 }
+                bevy::window::WindowCommand::Center(monitor_selection) => {
+                    let window = vulkano_winit_windows.get_winit_window(id).unwrap();
+
+                    let maybe_monitor = match monitor_selection {
+                        bevy::window::MonitorSelection::Current => window.current_monitor(),
+                        bevy::window::MonitorSelection::Primary => window.primary_monitor(),
+                        bevy::window::MonitorSelection::Number(n) => {
+                            window.available_monitors().nth(n)
+                        }
+                    };
+
+                    if let Some(monitor) = maybe_monitor {
+                        let screen_size = monitor.size();
+
+                        let window_size = window.outer_size();
+
+                        window.set_outer_position(PhysicalPosition {
+                            x: screen_size.width.saturating_sub(window_size.width) as f64 / 2.
+                                + monitor.position().x as f64,
+                            y: screen_size.height.saturating_sub(window_size.height) as f64 / 2.
+                                + monitor.position().y as f64,
+                        });
+                    } else {
+                        warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                    }
+                }
                 bevy::window::WindowCommand::SetResizeConstraints {
                     resize_constraints,
                 } => {
@@ -347,6 +375,28 @@ fn change_window(world: &mut World) {
                         window.set_max_inner_size(Some(max_inner_size));
                     }
                 }
+                bevy::window::WindowCommand::Close => {
+                    // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
+                    // Add the removal requests to a queue to solve this
+                    removed_windows.push(id);
+                    // No need to run any further commands - this drops the rest of the commands, although the `bevy_window::Window` will be dropped later anyway
+                    break;
+                }
+            }
+        }
+    }
+    if !removed_windows.is_empty() {
+        let mut app_exit_events = world.resource_mut::<Events<AppExit>>();
+        let mut window_close_events = world.resource_mut::<Events<WindowClosed>>();
+        for id in removed_windows {
+            let (app_close, window_close) =
+                close_window(id, &mut vulkano_winit_windows, &mut pipeline_sync_data);
+            if app_close {
+                app_exit_events.send(AppExit);
+            } else if window_close {
+                window_close_events.send(WindowClosed {
+                    id,
+                })
             }
         }
     }
@@ -444,8 +494,9 @@ pub fn winit_runner_with(mut app: App) {
                     ..
                 } => {
                     let world = app.world.cell();
-                    let mut vulkano_winit_windows =
-                        world.get_non_send_mut::<BevyVulkanoWindows>().unwrap();
+                    let mut vulkano_winit_windows = world
+                        .get_non_send_resource_mut::<BevyVulkanoWindows>()
+                        .unwrap();
                     let window_id = if let Some(window_id) =
                         vulkano_winit_windows.get_window_id(*winit_window_id)
                     {
@@ -472,7 +523,8 @@ pub fn winit_runner_with(mut app: App) {
                     ..
                 } => {
                     let world = app.world.cell();
-                    let vulkano_winit_windows = world.get_non_send::<BevyVulkanoWindows>().unwrap();
+                    let vulkano_winit_windows =
+                        world.get_non_send_resource::<BevyVulkanoWindows>().unwrap();
                     let mut windows = world.get_resource_mut::<Windows>().unwrap();
                     let window_id = if let Some(window_id) =
                         vulkano_winit_windows.get_window_id(winit_window_id)
@@ -766,9 +818,11 @@ fn handle_create_window_events(
     create_window_event_reader: &mut ManualEventReader<CreateWindow>,
 ) {
     let world = world.cell();
-    let vulkano_config = world.get_non_send::<VulkanoWinitConfig>().unwrap();
+    let vulkano_config = world.get_non_send_resource::<VulkanoWinitConfig>().unwrap();
     let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
-    let mut vulkano_winit_windows = world.get_non_send_mut::<BevyVulkanoWindows>().unwrap();
+    let mut vulkano_winit_windows = world
+        .get_non_send_resource_mut::<BevyVulkanoWindows>()
+        .unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let create_window_events = world.get_resource::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
@@ -789,9 +843,11 @@ fn handle_create_window_events(
 
 fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
     let world = world.cell();
-    let vulkano_config = world.get_non_send::<VulkanoWinitConfig>().unwrap();
+    let vulkano_config = world.get_non_send_resource::<VulkanoWinitConfig>().unwrap();
     let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
-    let mut vulkano_winit_windows = world.get_non_send_mut::<BevyVulkanoWindows>().unwrap();
+    let mut vulkano_winit_windows = world
+        .get_non_send_resource_mut::<BevyVulkanoWindows>()
+        .unwrap();
     let mut windows = world.get_resource_mut::<Windows>().unwrap();
     let mut create_window_events = world.get_resource_mut::<Events<CreateWindow>>().unwrap();
     let mut window_created_events = world.get_resource_mut::<Events<WindowCreated>>().unwrap();
@@ -812,26 +868,44 @@ fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
 
 pub fn exit_on_window_close_system(
     mut app_exit_events: EventWriter<AppExit>,
+    mut window_close_events: EventWriter<WindowClosed>,
     mut window_close_requested_events: EventReader<WindowCloseRequested>,
     mut windows: NonSendMut<BevyVulkanoWindows>,
     mut pipeline_data: ResMut<PipelineSyncData>,
 ) {
     for event in window_close_requested_events.iter() {
-        // Close app on primary window exit
-        if event.id == WindowId::primary() {
+        let (app_close, window_close) = close_window(event.id, &mut windows, &mut pipeline_data);
+        if app_close {
             app_exit_events.send(AppExit);
+        } else if window_close {
+            window_close_events.send(WindowClosed {
+                id: event.id,
+            })
         }
-        // But don't close app on secondary window exit. Instead cleanup...
-        else {
-            let window_id = event.id;
-            pipeline_data.remove(window_id);
-            let winit_id = if let Some(winit_window) = windows.get_winit_window(window_id) {
-                winit_window.id()
-            } else {
-                continue;
-            };
-            windows.windows.remove(&winit_id);
-        }
+    }
+}
+
+fn close_window(
+    window_id: bevy::window::WindowId,
+    windows: &mut BevyVulkanoWindows,
+    pipeline_data: &mut PipelineSyncData,
+    // App close?, Window was closed?
+) -> (bool, bool) {
+    // Close app on primary window exit
+    if window_id == WindowId::primary() {
+        (true, false)
+    }
+    // But don't close app on secondary window exit. Instead cleanup...
+    else {
+        pipeline_data.remove(window_id);
+        let winit_id = if let Some(winit_window) = windows.get_winit_window(window_id) {
+            winit_window.id()
+        } else {
+            // Window already closed
+            return (false, false);
+        };
+        windows.windows.remove(&winit_id);
+        (false, true)
     }
 }
 

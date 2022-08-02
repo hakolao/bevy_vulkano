@@ -1,7 +1,8 @@
 #[cfg(feature = "example_has_gui")]
+use bevy::window::close_on_esc;
+#[cfg(feature = "example_has_gui")]
 use bevy::{
     app::PluginGroupBuilder,
-    input::system::exit_on_esc_system,
     prelude::*,
     window::{CreateWindow, WindowId, WindowMode},
 };
@@ -17,10 +18,10 @@ pub struct PluginBundle;
 impl PluginGroup for PluginBundle {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
         // Minimum plugins for the demo
-        group.add(bevy::input::InputPlugin::default());
+        group.add(bevy::input::InputPlugin);
         // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
         // Bevy winit and render should be excluded
-        group.add(VulkanoWinitPlugin::default());
+        group.add(VulkanoWinitPlugin);
     }
 }
 
@@ -51,7 +52,7 @@ fn main() {
             ..WindowDescriptor::default()
         })
         .add_plugins(PluginBundle)
-        .add_system(exit_on_esc_system)
+        .add_system(close_on_esc)
         .add_startup_system(create_new_window_system)
         .add_system(create_new_window_on_space_system)
         .add_system_set_to_stage(

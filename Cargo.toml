@@ -1,6 +1,6 @@
 [package]
 name = "bevy_vulkano"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 authors = ["Okko Hakola <okkohakola@gmail.com>"]
 description = "Vulkano Backend for Bevy"
@@ -20,14 +20,14 @@ gui = ["egui_winit_vulkano"]
 vulkano = "0.30.0"
 vulkano-util = "0.30.0"
 vulkano-shaders = "0.30.0"
-egui_winit_vulkano = { version = "0.18", optional = true }
+egui_winit_vulkano = { version = "0.19", optional = true }
 winit = "0.26.0"
-image = "0.23.14"
+image = "0.24.3"
 approx = "0.5.1"
 raw-window-handle = "0.4"
 
 [dependencies.bevy]
-version = "0.7.0"
+version = "0.8.0"
 default-features = false
 features = []
 

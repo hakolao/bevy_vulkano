@@ -6,10 +6,9 @@ mod place_over_frame;
 
 use bevy::{
     app::PluginGroupBuilder,
-    core::FixedTimestep,
-    input::system::exit_on_esc_system,
     prelude::*,
-    window::{WindowId, WindowMode},
+    time::FixedTimestep,
+    window::{close_on_esc, WindowId, WindowMode},
 };
 use bevy_vulkano::{BevyVulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin};
 use vulkano::image::ImageAccess;
@@ -22,11 +21,12 @@ impl PluginGroup for PluginBundle {
     fn build(&mut self, group: &mut PluginGroupBuilder) {
         // Minimum plugins for the demo
         // Core needed for fixed time steps
-        group.add(bevy::core::CorePlugin::default());
-        group.add(bevy::input::InputPlugin::default());
+        group.add(bevy::core::CorePlugin);
+        group.add(bevy::input::InputPlugin);
+        group.add(bevy::time::TimePlugin);
         // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
         // Bevy winit and render should be excluded
-        group.add(VulkanoWinitPlugin::default());
+        group.add(VulkanoWinitPlugin);
     }
 }
 
@@ -40,11 +40,12 @@ fn main() {
             present_mode: bevy::window::PresentMode::Immediate,
             resizable: true,
             mode: WindowMode::Windowed,
+            position: WindowPosition::Centered(MonitorSelection::Primary),
             ..WindowDescriptor::default()
         })
         .add_plugins(PluginBundle)
         .add_startup_system(create_pipelines)
-        .add_system(exit_on_esc_system)
+        .add_system(close_on_esc)
         .add_system(draw_life_system)
         .add_system(update_window_title_system)
         .add_system_set_to_stage(
