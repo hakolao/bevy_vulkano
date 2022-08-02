@@ -40,6 +40,7 @@ fn main() {
             present_mode: bevy::window::PresentMode::Immediate,
             resizable: true,
             mode: WindowMode::Windowed,
+            position: WindowPosition::Centered(MonitorSelection::Primary),
             ..WindowDescriptor::default()
         })
         .add_plugins(PluginBundle)
