@@ -889,7 +889,7 @@ fn close_window(
     window_id: bevy::window::WindowId,
     windows: &mut BevyVulkanoWindows,
     pipeline_data: &mut PipelineSyncData,
-    // App close?, Window close?
+    // App close?, Window was closed?
 ) -> (bool, bool) {
     // Close app on primary window exit
     if window_id == WindowId::primary() {
@@ -905,7 +905,7 @@ fn close_window(
             return (false, false);
         };
         windows.windows.remove(&winit_id);
-        (true, true)
+        (false, true)
     }
 }
 
