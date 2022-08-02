@@ -237,6 +237,7 @@ impl BevyVulkanoWindows {
         {
             let gui = Gui::new(
                 window_renderer.surface(),
+                Some(window_renderer.swapchain_format()),
                 window_renderer.graphics_queue(),
                 _is_gui_overlay,
             );
