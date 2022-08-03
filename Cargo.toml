@@ -17,9 +17,10 @@ example_has_gui = ["gui"]
 gui = ["egui_winit_vulkano"]
 
 [dependencies]
-vulkano = "0.30.0"
-vulkano-util = "0.30.0"
-vulkano-shaders = "0.30.0"
+vulkano = { version = "0.30.0", path = "../vulkano/vulkano" }
+vulkano-util = { version = "0.30.0", path = "../vulkano/vulkano-util" }
+vulkano-shaders = { version = "0.30.0", path = "../vulkano/vulkano-shaders" }
+
 egui_winit_vulkano = { path = "../egui_winit_vulkano", version = "0.19", optional = true }
 winit = "0.26.0"
 image = "0.24.3"
