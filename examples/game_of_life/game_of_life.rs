@@ -72,7 +72,6 @@ impl GameOfLifeComputePipeline {
             ImageUsage {
                 sampled: true,
                 storage: true,
-                color_attachment: true,
                 transfer_dst: true,
                 ..ImageUsage::none()
             },
