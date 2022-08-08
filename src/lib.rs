@@ -40,6 +40,7 @@ use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    window::CursorGrabMode,
 };
 
 /// Vulkano & winit related configurations
@@ -288,7 +289,11 @@ fn change_window(world: &mut World) {
                 } => {
                     let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window
-                        .set_cursor_grab(locked)
+                        .set_cursor_grab(if locked {
+                            CursorGrabMode::Locked
+                        } else {
+                            CursorGrabMode::None
+                        })
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
                 bevy::window::WindowCommand::SetCursorVisibility {
@@ -418,7 +423,7 @@ where
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F)
+fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F) -> i32
 where
     F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
 {
@@ -806,7 +811,7 @@ pub fn winit_runner_with(mut app: App) {
         }
     };
     if should_return_from_run {
-        run_return(&mut event_loop, event_handler);
+        let _exit_code = run_return(&mut event_loop, event_handler);
     } else {
         run(event_loop, event_handler);
     }

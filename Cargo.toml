@@ -13,19 +13,20 @@ keywords = ["gui", "imgui", "vulkano", "gamedev", "bevy"]
 
 [features]
 default = []
-example_has_gui = ["gui"]
+example_has_gui = ["gui", "links", "clipboard"]
+links = ["gui", "egui_winit_vulkano/links"]
+clipboard = ["gui", "egui_winit_vulkano/clipboard"]
 gui = ["egui_winit_vulkano"]
 
 [dependencies]
 vulkano = { version = "0.30.0", path = "../vulkano/vulkano" }
 vulkano-util = { version = "0.30.0", path = "../vulkano/vulkano-util" }
 vulkano-shaders = { version = "0.30.0", path = "../vulkano/vulkano-shaders" }
-
-egui_winit_vulkano = { path = "../egui_winit_vulkano", version = "0.19", optional = true }
-winit = "0.26.0"
+egui_winit_vulkano = { path = "../egui_winit_vulkano", version = "0.19", optional = true, default_features = false, features = [] }
+winit = "0.27.1"
 image = "0.24.3"
 approx = "0.5.1"
-raw-window-handle = "0.4"
+raw-window-handle = "0.5"
 
 [dependencies.bevy]
 version = "0.8.0"
@@ -36,3 +37,4 @@ features = []
 anyhow = "1.0.40"
 rand = "0.8.4"
 bytemuck = "1.8.0"
+
