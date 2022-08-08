@@ -1107,6 +1107,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.18.1"
+source = "git+https://github.com/hakolao/egui?branch=update-winit-version#3cfe4287305df7ac44319398d1334168b59d91b8"
 dependencies = [
  "ahash",
  "epaint",
@@ -1117,6 +1118,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.18.0"
+source = "git+https://github.com/hakolao/egui?branch=update-winit-version#3cfe4287305df7ac44319398d1334168b59d91b8"
 dependencies = [
  "arboard",
  "egui",
@@ -1130,6 +1132,7 @@ dependencies = [
 [[package]]
 name = "egui_winit_vulkano"
 version = "0.19.0"
+source = "git+https://github.com/hakolao/egui_winit_vulkano?branch=ios#f325be5c8622c90452d264f80005ff310772dd6f"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1150,6 +1153,7 @@ checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 [[package]]
 name = "emath"
 version = "0.18.0"
+source = "git+https://github.com/hakolao/egui?branch=update-winit-version#3cfe4287305df7ac44319398d1334168b59d91b8"
 
 [[package]]
 name = "encase"
@@ -1196,6 +1200,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.18.1"
+source = "git+https://github.com/hakolao/egui?branch=update-winit-version#3cfe4287305df7ac44319398d1334168b59d91b8"
 dependencies = [
  "ab_glyph",
  "ahash",
@@ -2212,6 +2217,9 @@ name = "once_cell"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18a6dbe30758c9f83eb00cbea4ac95966305f5a7772f3f42ebfc7fc7eddbd8e1"
+dependencies = [
+ "parking_lot_core",
+]
 
 [[package]]
 name = "owned_ttf_parser"
@@ -2650,16 +2658,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shared_library"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a9e7e0f2bfae24d8a5b5a66c5b257a83c7412304311512a0c054cd5e619da11"
-dependencies = [
- "lazy_static",
- "libc",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3028,6 +3026,7 @@ dependencies = [
 [[package]]
 name = "vulkano"
 version = "0.30.0"
+source = "git+https://github.com/hakolao/vulkano?branch=ios-fix#18c05b85c0d9781b49e0d7438f5175e1275c0727"
 dependencies = [
  "ash",
  "bytemuck",
@@ -3036,13 +3035,14 @@ dependencies = [
  "heck",
  "indexmap",
  "lazy_static",
+ "libloading",
+ "once_cell",
  "parking_lot",
  "proc-macro2",
  "quote",
  "regex",
  "serde",
  "serde_json",
- "shared_library",
  "smallvec",
  "vk-parse",
 ]
@@ -3050,6 +3050,7 @@ dependencies = [
 [[package]]
 name = "vulkano-shaders"
 version = "0.30.0"
+source = "git+https://github.com/hakolao/vulkano?branch=ios-fix#18c05b85c0d9781b49e0d7438f5175e1275c0727"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -3062,6 +3063,7 @@ dependencies = [
 [[package]]
 name = "vulkano-util"
 version = "0.30.0"
+source = "git+https://github.com/hakolao/vulkano?branch=ios-fix#18c05b85c0d9781b49e0d7438f5175e1275c0727"
 dependencies = [
  "vulkano",
  "vulkano-win",
@@ -3071,6 +3073,7 @@ dependencies = [
 [[package]]
 name = "vulkano-win"
 version = "0.30.0"
+source = "git+https://github.com/hakolao/vulkano?branch=ios-fix#18c05b85c0d9781b49e0d7438f5175e1275c0727"
 dependencies = [
  "core-graphics-types",
  "objc",
