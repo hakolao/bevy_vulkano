@@ -239,6 +239,7 @@ impl BevyVulkanoWindows {
         #[cfg(feature = "gui")]
         {
             let gui = Gui::new(
+                event_loop,
                 window_renderer.surface(),
                 Some(window_renderer.swapchain_format()),
                 window_renderer.graphics_queue(),
