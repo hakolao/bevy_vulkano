@@ -126,19 +126,9 @@ impl Plugin for VulkanoWinitPlugin {
         #[cfg(feature = "gui")]
         {
             app.add_system_to_stage(CoreStage::PreUpdate, begin_egui_frame_system);
-            app.world
-                .insert_resource(ShouldSkipTouchEventsAfterGui::default());
         }
     }
 }
-
-/// A struct that is `true` if egui gui uses the touch event.
-/// Due to bevy's touch handling, we still want to process the touch event.
-/// However, user should check with this if they want to skip whatever there is to occur based
-/// on the touch
-#[cfg(feature = "gui")]
-#[derive(Debug, Default)]
-pub struct ShouldSkipTouchEventsAfterGui(pub bool);
 
 fn update_on_resize_system(
     mut pipeline_data: ResMut<PipelineSyncData>,
@@ -572,16 +562,14 @@ pub fn winit_runner_with(mut app: App) {
                             let window_height = windows.get_primary().unwrap().height();
                             location.y = window_height - location.y;
                         }
-                        touch_input_events.send(converters::convert_touch_input(*touch, location));
+                        let mut touch = converters::convert_touch_input(*touch, location);
 
-                        #[cfg(feature = "gui")]
-                        {
-                            if skip_window_event {
-                                world
-                                    .get_resource_mut::<ShouldSkipTouchEventsAfterGui>()
-                                    .unwrap()
-                                    .0 = true;
-                            }
+                        // We want to cancel any event when skip_window_event is true
+                        if cfg!(feature = "gui") && skip_window_event {
+                            touch.phase = bevy::input::touch::TouchPhase::Cancelled;
+                            touch_input_events.send(touch);
+                        } else {
+                            touch_input_events.send(touch);
                         }
                     }
                     _ => (),
@@ -591,14 +579,6 @@ pub fn winit_runner_with(mut app: App) {
         };
 
         if !skip_window_event {
-            // Clear skipped events
-            #[cfg(feature = "gui")]
-            {
-                app.world
-                    .get_resource_mut::<ShouldSkipTouchEventsAfterGui>()
-                    .unwrap()
-                    .0 = false;
-            }
             // Main events...
             match event {
                 event::Event::WindowEvent {
