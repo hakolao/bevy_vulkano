@@ -19,9 +19,9 @@ clipboard = ["gui", "egui_winit_vulkano/clipboard"]
 gui = ["egui_winit_vulkano"]
 
 [dependencies]
-vulkano = { version = "0.30.0", git = "https://github.com/hakolao/vulkano", branch = "ios-fix" }
-vulkano-util = { version = "0.30.0", git = "https://github.com/hakolao/vulkano", branch = "ios-fix" }
-vulkano-shaders = { version = "0.30.0", git = "https://github.com/hakolao/vulkano", branch = "ios-fix" }
+vulkano = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
+vulkano-util = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
+vulkano-shaders = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
 egui_winit_vulkano = { version = "0.19", git = "https://github.com/hakolao/egui_winit_vulkano", branch = "ios", optional = true, default_features = false, features = [] }
 winit = "0.27.1"
 image = "0.24.3"
