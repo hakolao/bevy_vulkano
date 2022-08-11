@@ -124,9 +124,21 @@ impl Plugin for VulkanoWinitPlugin {
             .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
         // Add gui begin frame system
         #[cfg(feature = "gui")]
-        app.add_system_to_stage(CoreStage::PreUpdate, begin_egui_frame_system);
+        {
+            app.add_system_to_stage(CoreStage::PreUpdate, begin_egui_frame_system);
+            app.world
+                .insert_resource(ShouldSkipTouchEventsAfterGui::default());
+        }
     }
 }
+
+/// A struct that is `true` if egui gui uses the touch event.
+/// Due to bevy's touch handling, we still want to process the touch event.
+/// However, user should check with this if they want to skip whatever there is to occur based
+/// on the touch
+#[cfg(feature = "gui")]
+#[derive(Debug, Default)]
+pub struct ShouldSkipTouchEventsAfterGui(pub bool);
 
 fn update_on_resize_system(
     mut pipeline_data: ResMut<PipelineSyncData>,
@@ -519,7 +531,74 @@ pub fn winit_runner_with(mut app: App) {
             }
         }
 
+        // Handle touch separately here, and in case of gui, we don't want to skip the touch event
+        match &event {
+            event::Event::WindowEvent {
+                event,
+                window_id: winit_window_id,
+                ..
+            } => {
+                let world = app.world.cell();
+                let vulkano_winit_windows =
+                    world.get_non_send_resource::<BevyVulkanoWindows>().unwrap();
+                let mut windows = world.get_resource_mut::<Windows>().unwrap();
+                let window_id = if let Some(window_id) =
+                    vulkano_winit_windows.get_window_id(*winit_window_id)
+                {
+                    window_id
+                } else {
+                    warn!(
+                        "Skipped event for unknown winit Window Id {:?}",
+                        winit_window_id
+                    );
+                    return;
+                };
+                let window = if let Some(window) = windows.get_mut(window_id) {
+                    window
+                } else {
+                    warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
+                    return;
+                };
+                match event {
+                    WindowEvent::Touch(touch) => {
+                        let mut touch_input_events =
+                            world.get_resource_mut::<Events<TouchInput>>().unwrap();
+
+                        let mut location = touch.location.to_logical(window.scale_factor());
+
+                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
+                        // bottom
+                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
+                            let window_height = windows.get_primary().unwrap().height();
+                            location.y = window_height - location.y;
+                        }
+                        touch_input_events.send(converters::convert_touch_input(*touch, location));
+
+                        #[cfg(feature = "gui")]
+                        {
+                            if skip_window_event {
+                                world
+                                    .get_resource_mut::<ShouldSkipTouchEventsAfterGui>()
+                                    .unwrap()
+                                    .0 = true;
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            }
+            _ => (),
+        };
+
         if !skip_window_event {
+            // Clear skipped events
+            #[cfg(feature = "gui")]
+            {
+                app.world
+                    .get_resource_mut::<ShouldSkipTouchEventsAfterGui>()
+                    .unwrap()
+                    .0 = false;
+            }
             // Main events...
             match event {
                 event::Event::WindowEvent {
@@ -652,21 +731,6 @@ pub fn winit_runner_with(mut app: App) {
                                 });
                             }
                         },
-                        WindowEvent::Touch(touch) => {
-                            let mut touch_input_events =
-                                world.get_resource_mut::<Events<TouchInput>>().unwrap();
-
-                            let mut location = touch.location.to_logical(window.scale_factor());
-
-                            // On a mobile window, the start is from the top while on PC/Linux/OSX from
-                            // bottom
-                            if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                                let window_height = windows.get_primary().unwrap().height();
-                                location.y = window_height - location.y;
-                            }
-                            touch_input_events
-                                .send(converters::convert_touch_input(touch, location));
-                        }
                         WindowEvent::ReceivedCharacter(c) => {
                             let mut char_input_events = world
                                 .get_resource_mut::<Events<ReceivedCharacter>>()
