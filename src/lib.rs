@@ -25,9 +25,10 @@ use bevy::{
     math::{ivec2, DVec2, Vec2},
     prelude::*,
     window::{
-        CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-        WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed, WindowCreated,
-        WindowFocused, WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+        CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
+        ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed,
+        WindowCreated, WindowFocused, WindowId, WindowMoved, WindowResized,
+        WindowScaleFactorChanged, WindowSettings, Windows,
     },
 };
 #[cfg(feature = "gui")]
@@ -40,6 +41,7 @@ use winit::{
     dpi::{LogicalSize, PhysicalPosition},
     event::{self, DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
+    window::CursorGrabMode,
 };
 
 /// Vulkano & winit related configurations
@@ -107,6 +109,15 @@ impl Plugin for VulkanoWinitPlugin {
         };
         app.insert_non_send_resource(new_config);
 
+        let mut window_settings = app
+            .world
+            .get_resource::<WindowSettings>()
+            .cloned()
+            .unwrap_or_default();
+        // Force to false because we handle this on our own in `exit_on_window_close_system`
+        window_settings.exit_on_all_closed = false;
+        app.insert_resource(window_settings);
+
         // Insert window plugin, vulkano context, windows resource & pipeline data
         app.add_plugin(bevy::window::WindowPlugin)
             .init_non_send_resource::<BevyVulkanoWindows>()
@@ -120,10 +131,15 @@ impl Plugin for VulkanoWinitPlugin {
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PreUpdate, update_on_resize_system)
             .add_system_to_stage(CoreStage::PreUpdate, exit_on_window_close_system)
-            .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                change_window.exclusive_system().label(ModifiesWindows),
+            );
         // Add gui begin frame system
         #[cfg(feature = "gui")]
-        app.add_system_to_stage(CoreStage::PreUpdate, begin_egui_frame_system);
+        {
+            app.add_system_to_stage(CoreStage::PreUpdate, begin_egui_frame_system);
+        }
     }
 }
 
@@ -288,7 +304,11 @@ fn change_window(world: &mut World) {
                 } => {
                     let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window
-                        .set_cursor_grab(locked)
+                        .set_cursor_grab(if locked {
+                            CursorGrabMode::Locked
+                        } else {
+                            CursorGrabMode::None
+                        })
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
                 bevy::window::WindowCommand::SetCursorVisibility {
@@ -418,7 +438,7 @@ where
     target_os = "netbsd",
     target_os = "openbsd"
 ))]
-fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F)
+fn run_return<F>(event_loop: &mut EventLoop<()>, event_handler: F) -> i32
 where
     F: FnMut(Event<'_, ()>, &EventLoopWindowTarget<()>, &mut ControlFlow),
 {
@@ -513,6 +533,63 @@ pub fn winit_runner_with(mut app: App) {
                 _ => (),
             }
         }
+
+        // Handle touch separately here, and in case of gui, we don't want to skip the touch event
+        match &event {
+            event::Event::WindowEvent {
+                event,
+                window_id: winit_window_id,
+                ..
+            } => {
+                let world = app.world.cell();
+                let vulkano_winit_windows =
+                    world.get_non_send_resource::<BevyVulkanoWindows>().unwrap();
+                let mut windows = world.get_resource_mut::<Windows>().unwrap();
+                let window_id = if let Some(window_id) =
+                    vulkano_winit_windows.get_window_id(*winit_window_id)
+                {
+                    window_id
+                } else {
+                    warn!(
+                        "Skipped event for unknown winit Window Id {:?}",
+                        winit_window_id
+                    );
+                    return;
+                };
+                let window = if let Some(window) = windows.get_mut(window_id) {
+                    window
+                } else {
+                    warn!("Skipped event for unknown Window Id {:?}", winit_window_id);
+                    return;
+                };
+                match event {
+                    WindowEvent::Touch(touch) => {
+                        let mut touch_input_events =
+                            world.get_resource_mut::<Events<TouchInput>>().unwrap();
+
+                        let mut location = touch.location.to_logical(window.scale_factor());
+
+                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
+                        // bottom
+                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
+                            let window_height = windows.get_primary().unwrap().height();
+                            location.y = window_height - location.y;
+                        }
+                        let mut touch = converters::convert_touch_input(*touch, location);
+
+                        // We want to cancel any event when skip_window_event is true
+                        if cfg!(feature = "gui") && skip_window_event {
+                            touch.phase = bevy::input::touch::TouchPhase::Cancelled;
+                            touch_input_events.send(touch);
+                        } else {
+                            touch_input_events.send(touch);
+                        }
+                    }
+                    _ => (),
+                }
+            }
+            _ => (),
+        };
 
         if !skip_window_event {
             // Main events...
@@ -647,21 +724,6 @@ pub fn winit_runner_with(mut app: App) {
                                 });
                             }
                         },
-                        WindowEvent::Touch(touch) => {
-                            let mut touch_input_events =
-                                world.get_resource_mut::<Events<TouchInput>>().unwrap();
-
-                            let mut location = touch.location.to_logical(window.scale_factor());
-
-                            // On a mobile window, the start is from the top while on PC/Linux/OSX from
-                            // bottom
-                            if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                                let window_height = windows.get_primary().unwrap().height();
-                                location.y = window_height - location.y;
-                            }
-                            touch_input_events
-                                .send(converters::convert_touch_input(touch, location));
-                        }
                         WindowEvent::ReceivedCharacter(c) => {
                             let mut char_input_events = world
                                 .get_resource_mut::<Events<ReceivedCharacter>>()
@@ -806,7 +868,7 @@ pub fn winit_runner_with(mut app: App) {
         }
     };
     if should_return_from_run {
-        run_return(&mut event_loop, event_handler);
+        let _exit_code = run_return(&mut event_loop, event_handler);
     } else {
         run(event_loop, event_handler);
     }

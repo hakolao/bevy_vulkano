@@ -1,6 +1,6 @@
 [package]
 name = "bevy_vulkano"
-version = "0.6.0"
+version = "0.7.0-dev"
 edition = "2021"
 authors = ["Okko Hakola <okkohakola@gmail.com>"]
 description = "Vulkano Backend for Bevy"
@@ -13,18 +13,20 @@ keywords = ["gui", "imgui", "vulkano", "gamedev", "bevy"]
 
 [features]
 default = []
-example_has_gui = ["gui"]
+example_has_gui = ["gui", "links", "clipboard"]
+links = ["gui", "egui_winit_vulkano/links"]
+clipboard = ["gui", "egui_winit_vulkano/clipboard"]
 gui = ["egui_winit_vulkano"]
 
 [dependencies]
-vulkano = "0.30.0"
-vulkano-util = "0.30.0"
-vulkano-shaders = "0.30.0"
-egui_winit_vulkano = { version = "0.19", optional = true }
-winit = "0.26.0"
+vulkano = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
+vulkano-util = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
+vulkano-shaders = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
+egui_winit_vulkano = { version = "0.20.0-dev", git = "https://github.com/hakolao/egui_winit_vulkano", rev = "6824fe7491eae3bee34c4fc66f64c26427319e01", optional = true, default_features = false, features = [] }
+winit = "0.27"
 image = "0.24.3"
 approx = "0.5.1"
-raw-window-handle = "0.4"
+raw-window-handle = "0.5"
 
 [dependencies.bevy]
 version = "0.8.0"
@@ -35,3 +37,4 @@ features = []
 anyhow = "1.0.40"
 rand = "0.8.4"
 bytemuck = "1.8.0"
+

@@ -158,6 +158,6 @@ pub fn main_render_system_secondary_window(mut vulkano_windows: NonSendMut<BevyV
         let final_image = window_renderer.swapchain_image_view();
         let after = gui.draw_on_image(before, final_image);
         // Finish frame
-        window_renderer.present(after, true);
+        window_renderer.present(after, false);
     }
 }

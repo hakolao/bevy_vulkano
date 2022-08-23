@@ -19,7 +19,10 @@ use vulkano_util::{
         WindowResizeConstraints as VulkanoWindowResizeConstraints,
     },
 };
-use winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition};
+use winit::{
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
+    window::CursorGrabMode,
+};
 
 use crate::VulkanoWinitConfig;
 
@@ -199,7 +202,7 @@ impl BevyVulkanoWindows {
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
         if window_descriptor.cursor_locked {
-            match winit_window.set_cursor_grab(true) {
+            match winit_window.set_cursor_grab(CursorGrabMode::Locked) {
                 Ok(_) => {}
                 Err(winit::error::ExternalError::NotSupported(_)) => {}
                 Err(err) => Err(err).unwrap(),
@@ -236,6 +239,7 @@ impl BevyVulkanoWindows {
         #[cfg(feature = "gui")]
         {
             let gui = Gui::new(
+                event_loop,
                 window_renderer.surface(),
                 Some(window_renderer.swapchain_format()),
                 window_renderer.graphics_queue(),
@@ -254,7 +258,8 @@ impl BevyVulkanoWindows {
             inner_size.height,
             scale_factor,
             position,
-            raw_window_handle,
+            // Transmuting due to crate version diff...
+            unsafe { std::mem::transmute(raw_window_handle) },
         )
     }
 
@@ -373,7 +378,9 @@ pub fn get_fitting_videomode(
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
                 match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
-                    Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                    Equal => b
+                        .refresh_rate_millihertz()
+                        .cmp(&a.refresh_rate_millihertz()),
                     default => default,
                 }
             }
@@ -390,7 +397,9 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
         use std::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
-                Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                Equal => b
+                    .refresh_rate_millihertz()
+                    .cmp(&a.refresh_rate_millihertz()),
                 default => default,
             },
             default => default,
