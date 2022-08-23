@@ -25,9 +25,10 @@ use bevy::{
     math::{ivec2, DVec2, Vec2},
     prelude::*,
     window::{
-        CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
-        WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed, WindowCreated,
-        WindowFocused, WindowId, WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
+        CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
+        ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed,
+        WindowCreated, WindowFocused, WindowId, WindowMoved, WindowResized,
+        WindowScaleFactorChanged, Windows,
     },
 };
 #[cfg(feature = "gui")]
@@ -121,7 +122,10 @@ impl Plugin for VulkanoWinitPlugin {
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PreUpdate, update_on_resize_system)
             .add_system_to_stage(CoreStage::PreUpdate, exit_on_window_close_system)
-            .add_system_to_stage(CoreStage::PostUpdate, change_window.exclusive_system());
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                change_window.exclusive_system().label(ModifiesWindows),
+            );
         // Add gui begin frame system
         #[cfg(feature = "gui")]
         {
