@@ -28,7 +28,7 @@ use bevy::{
         CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
         ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed,
         WindowCreated, WindowFocused, WindowId, WindowMoved, WindowResized,
-        WindowScaleFactorChanged, Windows,
+        WindowScaleFactorChanged, WindowSettings, Windows,
     },
 };
 #[cfg(feature = "gui")]
@@ -108,6 +108,15 @@ impl Plugin for VulkanoWinitPlugin {
             ..config
         };
         app.insert_non_send_resource(new_config);
+
+        let mut window_settings = app
+            .world
+            .get_resource::<WindowSettings>()
+            .cloned()
+            .unwrap_or_default();
+        // Force to false because we handle this on our own in `exit_on_window_close_system`
+        window_settings.exit_on_all_closed = false;
+        app.insert_resource(window_settings);
 
         // Insert window plugin, vulkano context, windows resource & pipeline data
         app.add_plugin(bevy::window::WindowPlugin)
