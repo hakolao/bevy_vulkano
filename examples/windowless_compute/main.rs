@@ -51,9 +51,9 @@ fn run_compute_shader_once_then_exit(
                 "
             }
         }
-        let shader = cs::load(vulkano_context.device()).unwrap();
+        let shader = cs::load(vulkano_context.device().clone()).unwrap();
         ComputePipeline::new(
-            vulkano_context.device(),
+            vulkano_context.device().clone(),
             shader.entry_point("main").unwrap(),
             &(),
             None,
@@ -65,7 +65,7 @@ fn run_compute_shader_once_then_exit(
     let data_buffer = {
         let data_iter = (0..65536u32).collect::<Vec<u32>>();
         CpuAccessibleBuffer::from_iter(
-            vulkano_context.device(),
+            vulkano_context.device().clone(),
             BufferUsage {
                 storage_buffer: true,
                 ..BufferUsage::none()
@@ -86,7 +86,7 @@ fn run_compute_shader_once_then_exit(
 
     // Build command buffer
     let mut builder = AutoCommandBufferBuilder::primary(
-        vulkano_context.device(),
+        vulkano_context.device().clone(),
         vulkano_context.compute_queue().family(),
         CommandBufferUsage::OneTimeSubmit,
     )
@@ -104,8 +104,8 @@ fn run_compute_shader_once_then_exit(
     let command_buffer = builder.build().unwrap();
 
     // Execute the command buffer & wait on it to finish
-    let future = sync::now(vulkano_context.device())
-        .then_execute(vulkano_context.compute_queue(), command_buffer)
+    let future = sync::now(vulkano_context.device().clone())
+        .then_execute(vulkano_context.compute_queue().clone(), command_buffer)
         .unwrap()
         .then_signal_fence_and_flush()
         .unwrap();
