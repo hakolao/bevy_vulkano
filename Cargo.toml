@@ -22,7 +22,7 @@ gui = ["egui_winit_vulkano"]
 vulkano = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
 vulkano-util = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
 vulkano-shaders = { version = "0.30.0", git = "https://github.com/vulkano-rs/vulkano", rev = "ac890aa0a4b8bd4a0469506c27a503c1af7e6205" }
-egui_winit_vulkano = { version = "0.20.0-dev", git = "https://github.com/hakolao/egui_winit_vulkano", rev = "6824fe7491eae3bee34c4fc66f64c26427319e01", optional = true, default_features = false, features = [] }
+egui_winit_vulkano = { version = "0.20.0-dev", git = "https://github.com/hakolao/egui_winit_vulkano", rev = "826c6d12754f88ccdbd56b0491a6f76e127f08f6", optional = true, default_features = false, features = [] }
 winit = "0.27"
 image = "0.24.3"
 approx = "0.5.1"

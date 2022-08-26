@@ -1146,7 +1146,7 @@ dependencies = [
 [[package]]
 name = "egui_winit_vulkano"
 version = "0.20.0-dev"
-source = "git+https://github.com/hakolao/egui_winit_vulkano?rev=6824fe7491eae3bee34c4fc66f64c26427319e01#6824fe7491eae3bee34c4fc66f64c26427319e01"
+source = "git+https://github.com/hakolao/egui_winit_vulkano?rev=826c6d12754f88ccdbd56b0491a6f76e127f08f6#826c6d12754f88ccdbd56b0491a6f76e127f08f6"
 dependencies = [
  "ahash 0.7.6",
  "bytemuck",
