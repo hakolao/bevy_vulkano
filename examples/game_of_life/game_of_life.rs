@@ -39,7 +39,10 @@ pub struct GameOfLifeComputePipeline {
 fn rand_grid(compute_queue: &Arc<Queue>, size: [u32; 2]) -> Arc<CpuAccessibleBuffer<[u32]>> {
     CpuAccessibleBuffer::from_iter(
         compute_queue.device().clone(),
-        BufferUsage::all(),
+        BufferUsage {
+            storage_buffer: true,
+            ..BufferUsage::empty()
+        },
         false,
         (0..(size[0] * size[1]))
             .map(|_| rand::thread_rng().gen_range(0u32..=1))
@@ -73,7 +76,7 @@ impl GameOfLifeComputePipeline {
                 sampled: true,
                 storage: true,
                 transfer_dst: true,
-                ..ImageUsage::none()
+                ..ImageUsage::empty()
             },
         )
         .unwrap();
@@ -108,7 +111,7 @@ impl GameOfLifeComputePipeline {
     ) -> Box<dyn GpuFuture> {
         let mut builder = AutoCommandBufferBuilder::primary(
             self.compute_queue.device().clone(),
-            self.compute_queue.family(),
+            self.compute_queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )
         .unwrap();
@@ -244,6 +247,11 @@ void main() {
     } else {
         compute_color();
     }
-}"
+}",
+        types_meta: {
+            use bytemuck::{Pod, Zeroable};
+
+            #[derive(Clone, Copy, Zeroable, Pod)]
+        },
     }
 }

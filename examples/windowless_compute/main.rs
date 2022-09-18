@@ -68,7 +68,7 @@ fn run_compute_shader_once_then_exit(
             vulkano_context.device().clone(),
             BufferUsage {
                 storage_buffer: true,
-                ..BufferUsage::none()
+                ..BufferUsage::empty()
             },
             false,
             data_iter,
@@ -87,7 +87,7 @@ fn run_compute_shader_once_then_exit(
     // Build command buffer
     let mut builder = AutoCommandBufferBuilder::primary(
         vulkano_context.device().clone(),
-        vulkano_context.compute_queue().family(),
+        vulkano_context.compute_queue().queue_family_index(),
         CommandBufferUsage::OneTimeSubmit,
     )
     .unwrap();

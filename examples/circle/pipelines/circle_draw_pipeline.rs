@@ -49,13 +49,19 @@ impl CircleDrawPipeline {
         let (v, i) = textured_quad([0.0; 4], 2.0, 2.0);
         let vertices = CpuAccessibleBuffer::from_iter(
             gfx_queue.device().clone(),
-            BufferUsage::vertex_buffer(),
+            BufferUsage {
+                vertex_buffer: true,
+                ..BufferUsage::empty()
+            },
             false,
             v.into_iter(),
         )?;
         let indices = CpuAccessibleBuffer::from_iter(
             gfx_queue.device().clone(),
-            BufferUsage::index_buffer(),
+            BufferUsage {
+                index_buffer: true,
+                ..BufferUsage::empty()
+            },
             false,
             i.into_iter(),
         )?;
@@ -105,7 +111,12 @@ impl CircleDrawPipeline {
 mod vs {
     vulkano_shaders::shader! {
         ty: "vertex",
-        path: "examples/circle/shaders/circle_vert.glsl"
+        path: "examples/circle/shaders/circle_vert.glsl",
+        types_meta: {
+            use bytemuck::{Pod, Zeroable};
+
+            #[derive(Clone, Copy, Zeroable, Pod)]
+        },
     }
 }
 
