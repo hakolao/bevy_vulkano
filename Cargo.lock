@@ -1142,8 +1142,9 @@ dependencies = [
 
 [[package]]
 name = "egui_winit_vulkano"
-version = "0.20.0-dev"
-source = "git+https://github.com/hakolao/egui_winit_vulkano?branch=update-libs-vulkano-0.31#39d585602806f50ed9d7ed15487152b7000a1390"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7befd6a9d52b5ff17d7e09986ee183abe634ffb88660685a8128b46b2cc015fa"
 dependencies = [
  "ahash 0.7.6",
  "bytemuck",
