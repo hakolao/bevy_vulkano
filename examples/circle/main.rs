@@ -38,7 +38,7 @@ fn main() {
             vulkano_config: VulkanoConfig {
                 device_features: Features {
                     fill_mode_non_solid: true,
-                    ..Features::none()
+                    ..Features::empty()
                 },
                 ..VulkanoConfig::default()
             },

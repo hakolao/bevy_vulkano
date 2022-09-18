@@ -67,7 +67,7 @@ pub fn command_buffer_builder(
 ) -> Result<AutoCommandBufferBuilder<SecondaryAutoCommandBuffer>> {
     let builder = AutoCommandBufferBuilder::secondary(
         gfx_queue.device().clone(),
-        gfx_queue.family(),
+        gfx_queue.queue_family_index(),
         CommandBufferUsage::MultipleSubmit,
         CommandBufferInheritanceInfo {
             render_pass: Some(subpass.into()),

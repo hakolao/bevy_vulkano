@@ -94,7 +94,7 @@ impl RenderPassDeferred {
         })?;
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
             self.gfx_queue.device().clone(),
-            self.gfx_queue.family(),
+            self.gfx_queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )?;
         command_buffer_builder.begin_render_pass(
