@@ -2,7 +2,8 @@
     clippy::needless_question_mark,
     clippy::too_many_arguments,
     clippy::type_complexity,
-    clippy::module_inception
+    clippy::module_inception,
+    clippy::single_match
 )]
 
 /*
