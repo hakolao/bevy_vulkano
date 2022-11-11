@@ -2,7 +2,8 @@
     clippy::needless_question_mark,
     clippy::too_many_arguments,
     clippy::type_complexity,
-    clippy::module_inception
+    clippy::module_inception,
+    clippy::single_match
 )]
 
 /*
@@ -11,7 +12,6 @@ This allows you to create your own pipelines for rendering.
  */
 mod converters;
 mod pipeline_sync_data;
-mod utils;
 mod vulkano_windows;
 
 use bevy::{
@@ -34,7 +34,6 @@ use bevy::{
 #[cfg(feature = "gui")]
 pub use egui_winit_vulkano;
 pub use pipeline_sync_data::*;
-pub use utils::*;
 use vulkano_util::context::{VulkanoConfig, VulkanoContext};
 pub use vulkano_windows::*;
 use winit::{

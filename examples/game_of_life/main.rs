@@ -12,6 +12,7 @@ use bevy::{
 };
 use bevy_vulkano::{BevyVulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin};
 use vulkano::image::ImageAccess;
+use vulkano_util::context::VulkanoContext;
 
 use crate::{game_of_life::GameOfLifeComputePipeline, place_over_frame::RenderPassPlaceOverFrame};
 
@@ -67,13 +68,21 @@ fn update_window_title_system(vulkano_windows: NonSend<BevyVulkanoWindows>, time
 }
 
 /// Creates our simulation pipeline & render pipeline
-fn create_pipelines(mut commands: Commands, vulkano_windows: NonSend<BevyVulkanoWindows>) {
+fn create_pipelines(
+    mut commands: Commands,
+    vulkano_context: NonSend<VulkanoContext>,
+    vulkano_windows: NonSend<BevyVulkanoWindows>,
+) {
     let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
     // Create compute pipeline to simulate game of life
-    let game_of_life_pipeline =
-        GameOfLifeComputePipeline::new(primary_window.graphics_queue(), [512, 512]);
+    let game_of_life_pipeline = GameOfLifeComputePipeline::new(
+        vulkano_context.memory_allocator(),
+        primary_window.graphics_queue(),
+        [512, 512],
+    );
     // Create our render pass
     let place_over_frame = RenderPassPlaceOverFrame::new(
+        vulkano_context.memory_allocator().clone(),
         primary_window.graphics_queue(),
         primary_window.swapchain_format(),
     );

@@ -2,8 +2,12 @@ use bevy::{app::AppExit, prelude::*, window::WindowSettings};
 use bevy_vulkano::{VulkanoWinitConfig, VulkanoWinitPlugin};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
-    command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage},
-    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
+    command_buffer::{
+        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
+    },
+    descriptor_set::{
+        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
+    },
     pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
     sync,
     sync::GpuFuture,
@@ -65,7 +69,7 @@ fn run_compute_shader_once_then_exit(
     let data_buffer = {
         let data_iter = (0..65536u32).collect::<Vec<u32>>();
         CpuAccessibleBuffer::from_iter(
-            vulkano_context.device().clone(),
+            vulkano_context.memory_allocator(),
             BufferUsage {
                 storage_buffer: true,
                 ..BufferUsage::empty()
@@ -76,17 +80,22 @@ fn run_compute_shader_once_then_exit(
         .unwrap()
     };
 
+    let command_buffer_allocator =
+        StandardCommandBufferAllocator::new(vulkano_context.device().clone(), Default::default());
+
+    let descriptor_set_allocator =
+        StandardDescriptorSetAllocator::new(vulkano_context.device().clone());
+
     // Create pipeline layout & descriptor set (data inputs)
     let layout = pipeline.layout().set_layouts().get(0).unwrap();
-    let set = PersistentDescriptorSet::new(layout.clone(), [WriteDescriptorSet::buffer(
-        0,
-        data_buffer.clone(),
-    )])
+    let set = PersistentDescriptorSet::new(&descriptor_set_allocator, layout.clone(), [
+        WriteDescriptorSet::buffer(0, data_buffer.clone()),
+    ])
     .unwrap();
 
     // Build command buffer
     let mut builder = AutoCommandBufferBuilder::primary(
-        vulkano_context.device().clone(),
+        &command_buffer_allocator,
         vulkano_context.compute_queue().queue_family_index(),
         CommandBufferUsage::OneTimeSubmit,
     )
