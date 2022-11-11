@@ -11,11 +11,13 @@ use std::sync::Arc;
 
 use vulkano::{
     command_buffer::{
-        AutoCommandBufferBuilder, CommandBufferUsage, RenderPassBeginInfo, SubpassContents,
+        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
+        RenderPassBeginInfo, SubpassContents,
     },
-    device::Queue,
+    device::{DeviceOwned, Queue},
     format::Format,
     image::ImageAccess,
+    memory::allocator::StandardMemoryAllocator,
     render_pass::{Framebuffer, FramebufferCreateInfo, RenderPass, Subpass},
     sync::GpuFuture,
 };
@@ -26,12 +28,17 @@ use crate::pixels_draw_pipeline::PixelsDrawPipeline;
 /// A render pass which places an incoming image over frame filling it
 pub struct RenderPassPlaceOverFrame {
     gfx_queue: Arc<Queue>,
+    command_buffer_allocator: StandardCommandBufferAllocator,
     render_pass: Arc<RenderPass>,
     pixels_draw_pipeline: PixelsDrawPipeline,
 }
 
 impl RenderPassPlaceOverFrame {
-    pub fn new(gfx_queue: Arc<Queue>, output_format: Format) -> RenderPassPlaceOverFrame {
+    pub fn new(
+        allocator: Arc<StandardMemoryAllocator>,
+        gfx_queue: Arc<Queue>,
+        output_format: Format,
+    ) -> RenderPassPlaceOverFrame {
         let render_pass = vulkano::single_pass_renderpass!(gfx_queue.device().clone(),
             attachments: {
                 color: {
@@ -48,9 +55,14 @@ impl RenderPassPlaceOverFrame {
         )
         .unwrap();
         let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
-        let pixels_draw_pipeline = PixelsDrawPipeline::new(gfx_queue.clone(), subpass);
+        let pixels_draw_pipeline =
+            PixelsDrawPipeline::new(allocator.clone(), gfx_queue.clone(), subpass);
         RenderPassPlaceOverFrame {
             gfx_queue,
+            command_buffer_allocator: StandardCommandBufferAllocator::new(
+                allocator.device().clone(),
+                Default::default(),
+            ),
             render_pass,
             pixels_draw_pipeline,
         }
@@ -77,7 +89,7 @@ impl RenderPassPlaceOverFrame {
         .unwrap();
         // Create primary command buffer builder
         let mut command_buffer_builder = AutoCommandBufferBuilder::primary(
-            self.gfx_queue.device().clone(),
+            &self.command_buffer_allocator,
             self.gfx_queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )

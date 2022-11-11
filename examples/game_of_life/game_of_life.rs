@@ -13,11 +13,17 @@ use bevy::math::IVec2;
 use rand::Rng;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
-    command_buffer::{AutoCommandBufferBuilder, CommandBufferUsage, PrimaryAutoCommandBuffer},
-    descriptor_set::{PersistentDescriptorSet, WriteDescriptorSet},
-    device::Queue,
+    command_buffer::{
+        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
+        PrimaryAutoCommandBuffer,
+    },
+    descriptor_set::{
+        allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
+    },
+    device::{DeviceOwned, Queue},
     format::Format,
     image::{ImageAccess, ImageUsage, StorageImage},
+    memory::allocator::StandardMemoryAllocator,
     pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
     sync::GpuFuture,
 };
@@ -30,15 +36,20 @@ use vulkano_util::renderer::DeviceImageView;
 /// data that was just written by another thread
 pub struct GameOfLifeComputePipeline {
     compute_queue: Arc<Queue>,
+    command_buffer_allocator: StandardCommandBufferAllocator,
+    descriptor_set_allocator: StandardDescriptorSetAllocator,
     compute_life_pipeline: Arc<ComputePipeline>,
     life_in: Arc<CpuAccessibleBuffer<[u32]>>,
     life_out: Arc<CpuAccessibleBuffer<[u32]>>,
     image: DeviceImageView,
 }
 
-fn rand_grid(compute_queue: &Arc<Queue>, size: [u32; 2]) -> Arc<CpuAccessibleBuffer<[u32]>> {
+fn rand_grid(
+    allocator: &Arc<StandardMemoryAllocator>,
+    size: [u32; 2],
+) -> Arc<CpuAccessibleBuffer<[u32]>> {
     CpuAccessibleBuffer::from_iter(
-        compute_queue.device().clone(),
+        allocator,
         BufferUsage {
             storage_buffer: true,
             ..BufferUsage::empty()
@@ -52,14 +63,18 @@ fn rand_grid(compute_queue: &Arc<Queue>, size: [u32; 2]) -> Arc<CpuAccessibleBuf
 }
 
 impl GameOfLifeComputePipeline {
-    pub fn new(compute_queue: Arc<Queue>, size: [u32; 2]) -> GameOfLifeComputePipeline {
-        let life_in = rand_grid(&compute_queue, size);
-        let life_out = rand_grid(&compute_queue, size);
+    pub fn new(
+        allocator: &Arc<StandardMemoryAllocator>,
+        compute_queue: Arc<Queue>,
+        size: [u32; 2],
+    ) -> GameOfLifeComputePipeline {
+        let life_in = rand_grid(allocator, size);
+        let life_out = rand_grid(allocator, size);
 
         let compute_life_pipeline = {
             let shader = compute_life_cs::load(compute_queue.device().clone()).unwrap();
             ComputePipeline::new(
-                compute_queue.device().clone(),
+                allocator.device().clone(),
                 shader.entry_point("main").unwrap(),
                 &(),
                 None,
@@ -69,6 +84,7 @@ impl GameOfLifeComputePipeline {
         };
 
         let image = StorageImage::general_purpose_image_view(
+            allocator,
             compute_queue.clone(),
             size,
             Format::R8G8B8A8_UNORM,
@@ -82,6 +98,13 @@ impl GameOfLifeComputePipeline {
         .unwrap();
         GameOfLifeComputePipeline {
             compute_queue,
+            command_buffer_allocator: StandardCommandBufferAllocator::new(
+                allocator.device().clone(),
+                Default::default(),
+            ),
+            descriptor_set_allocator: StandardDescriptorSetAllocator::new(
+                allocator.device().clone(),
+            ),
             compute_life_pipeline,
             life_in,
             life_out,
@@ -110,7 +133,7 @@ impl GameOfLifeComputePipeline {
         dead_color: [f32; 4],
     ) -> Box<dyn GpuFuture> {
         let mut builder = AutoCommandBufferBuilder::primary(
-            self.compute_queue.device().clone(),
+            &self.command_buffer_allocator,
             self.compute_queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )
@@ -150,12 +173,13 @@ impl GameOfLifeComputePipeline {
         let img_dims = self.image.image().dimensions().width_height();
         let pipeline_layout = self.compute_life_pipeline.layout();
         let desc_layout = pipeline_layout.set_layouts().get(0).unwrap();
-        let set = PersistentDescriptorSet::new(desc_layout.clone(), [
-            WriteDescriptorSet::image_view(0, self.image.clone()),
-            WriteDescriptorSet::buffer(1, self.life_in.clone()),
-            WriteDescriptorSet::buffer(2, self.life_out.clone()),
-        ])
-        .unwrap();
+        let set =
+            PersistentDescriptorSet::new(&self.descriptor_set_allocator, desc_layout.clone(), [
+                WriteDescriptorSet::image_view(0, self.image.clone()),
+                WriteDescriptorSet::buffer(1, self.life_in.clone()),
+                WriteDescriptorSet::buffer(2, self.life_out.clone()),
+            ])
+            .unwrap();
 
         let push_constants = compute_life_cs::ty::PushConstants {
             life_color,
