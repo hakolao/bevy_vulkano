@@ -36,6 +36,7 @@ jobs:
         with:
           args: install python3 --params "/InstallAllUsers"
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
       - name: Build
         run: cargo build --verbose
       - name: Run tests
@@ -44,6 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
       - name: init
         run: sudo apt-get install build-essential git python cmake libvulkan-dev vulkan-utils libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Build
@@ -54,6 +56,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
       - name: Build
         run: cargo build --verbose
       - name: Run tests
