@@ -3,7 +3,8 @@
     clippy::too_many_arguments,
     clippy::type_complexity,
     clippy::module_inception,
-    clippy::single_match
+    clippy::single_match,
+    clippy::match_like_matches_macro
 )]
 
 /*
@@ -119,10 +120,13 @@ impl Plugin for VulkanoWinitPlugin {
         };
         app.insert_non_send_resource(new_config);
 
-        let mut window_plugin = bevy::window::WindowPlugin::default();
-        window_plugin.exit_on_all_closed = false;
-        window_plugin.add_primary_window = config.add_primary_window;
-        window_plugin.window = self.window_descriptor.clone();
+        let window_plugin = bevy::window::WindowPlugin {
+            // This lib controls exiting all on close. (true)
+            exit_on_all_closed: false,
+            add_primary_window: config.add_primary_window,
+            window: self.window_descriptor.clone(),
+            ..default()
+        };
 
         // Insert window plugin, vulkano context, windows resource & pipeline data
         app.add_plugin(window_plugin)
