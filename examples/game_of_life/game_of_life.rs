@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use bevy::math::IVec2;
+use bevy::{math::IVec2, prelude::Resource};
 use rand::Rng;
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
@@ -34,6 +34,7 @@ use vulkano_util::renderer::DeviceImageView;
 /// Because each step we determine state in parallel, we need to write the output to
 /// another grid. Otherwise the state would not be correctly determined as one thread might read
 /// data that was just written by another thread
+#[derive(Resource)]
 pub struct GameOfLifeComputePipeline {
     compute_queue: Arc<Queue>,
     command_buffer_allocator: StandardCommandBufferAllocator,

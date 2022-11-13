@@ -23,9 +23,10 @@ use vulkano::{
 };
 use vulkano_util::renderer::{DeviceImageView, SwapchainImageView};
 
-use crate::pixels_draw_pipeline::PixelsDrawPipeline;
+use crate::{pixels_draw_pipeline::PixelsDrawPipeline, Resource};
 
 /// A render pass which places an incoming image over frame filling it
+#[derive(Resource)]
 pub struct RenderPassPlaceOverFrame {
     gfx_queue: Arc<Queue>,
     command_buffer_allocator: StandardCommandBufferAllocator,

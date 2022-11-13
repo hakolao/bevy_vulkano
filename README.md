@@ -25,31 +25,24 @@ This should be especially useful for learning graphics pipelines from scratch us
 ## Usage
 
 ```rust
-pub struct PluginBundle;
-
-impl PluginGroup for PluginBundle {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
-        group.add(bevy::input::InputPlugin::default());
-        group.add(VulkanoWinitPlugin::default());
-    }
-}
-
 fn main() {
     App::new()
         // Vulkano configs (Modify this if you want to add features to vulkano (vulkan backend).
         // You can also disable primary window opening here
         .insert_non_send_resource(VulkanoWinitConfig::default())
-        // Window configs for primary window
-        .insert_resource(WindowDescriptor {
-            width: 1920.0,
-            height: 1080.0,
-            title: "Bevy Vulkano".to_string(),
-            present_mode: bevy::window::PresentMode::Immediate,
-            resizable: true,
-            mode: WindowMode::Windowed,
-            ..WindowDescriptor::default()
+        .add_plugin(bevy::input::InputPlugin::default())
+        // Window settings for primary window (if you want no window, modify config above)
+        .add_plugin(VulkanoWinitPlugin {
+            window_descriptor: WindowDescriptor {
+                width: 1920.0,
+                height: 1080.0,
+                title: "Bevy Vulkano".to_string(),
+                present_mode: bevy::window::PresentMode::Immediate,
+                resizable: true,
+                mode: WindowMode::Windowed,
+                ..WindowDescriptor::default()
+            }
         })
-        .add_plugins(PluginBundle)
         .run();
 }
 ```

@@ -16,12 +16,13 @@ pub struct PluginBundle;
 
 #[cfg(feature = "example_has_gui")]
 impl PluginGroup for PluginBundle {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
-        // Minimum plugins for the demo
-        group.add(bevy::input::InputPlugin);
-        // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
-        // Bevy winit and render should be excluded
-        group.add(VulkanoWinitPlugin);
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<PluginBundle>()
+            // Minimum plugins for the demo
+            .add(bevy::input::InputPlugin)
+            // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
+            // Bevy winit and render should be excluded
+            .add(VulkanoWinitPlugin::default())
     }
 }
 
@@ -42,16 +43,17 @@ fn main() {
             is_gui_overlay: true,
             ..VulkanoWinitConfig::default()
         })
-        .insert_resource(WindowDescriptor {
-            width: 1920.0,
-            height: 1080.0,
-            title: "Bevy Vulkano Primary Window".to_string(),
-            present_mode: bevy::window::PresentMode::Fifo,
-            resizable: true,
-            mode: WindowMode::Windowed,
-            ..WindowDescriptor::default()
-        })
-        .add_plugins(PluginBundle)
+        .add_plugins(PluginBundle.set(VulkanoWinitPlugin {
+            window_descriptor: WindowDescriptor {
+                width: 1920.0,
+                height: 1080.0,
+                title: "Bevy Vulkano Primary Window".to_string(),
+                present_mode: bevy::window::PresentMode::Fifo,
+                resizable: true,
+                mode: WindowMode::Windowed,
+                ..WindowDescriptor::default()
+            },
+        }))
         .add_system(close_on_esc)
         .add_startup_system(create_new_window_system)
         .add_system(create_new_window_on_space_system)

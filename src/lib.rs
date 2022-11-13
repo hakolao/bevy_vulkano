@@ -28,7 +28,7 @@ use bevy::{
         CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ModifiesWindows,
         ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed,
         WindowCreated, WindowFocused, WindowId, WindowMoved, WindowResized,
-        WindowScaleFactorChanged, WindowSettings, Windows,
+        WindowScaleFactorChanged, Windows,
     },
 };
 #[cfg(feature = "gui")]
@@ -62,6 +62,8 @@ pub struct VulkanoWinitConfig {
     /// `gui` feature is set.
     /// Default is true, thus you need to clear the image you intend to draw gui on
     pub is_gui_overlay: bool,
+    /// Control whether you want to run the app with or without a window
+    pub add_primary_window: bool,
 }
 
 impl Default for VulkanoWinitConfig {
@@ -70,13 +72,22 @@ impl Default for VulkanoWinitConfig {
             return_from_run: false,
             vulkano_config: VulkanoConfig::default(),
             is_gui_overlay: true,
+            add_primary_window: true,
         }
     }
 }
 
+/// Wrapper around [`VulkanoContext`] to allow using them as resources
+#[derive(Resource)]
+pub struct BevyVulkanoContext {
+    pub context: VulkanoContext,
+}
+
 /// Plugin that allows replacing Bevy's render backend with Vulkano. See examples for usage.
 #[derive(Default)]
-pub struct VulkanoWinitPlugin;
+pub struct VulkanoWinitPlugin {
+    pub window_descriptor: WindowDescriptor,
+}
 
 impl Plugin for VulkanoWinitPlugin {
     fn build(&self, app: &mut App) {
@@ -108,20 +119,18 @@ impl Plugin for VulkanoWinitPlugin {
         };
         app.insert_non_send_resource(new_config);
 
-        let mut window_settings = app
-            .world
-            .get_resource::<WindowSettings>()
-            .cloned()
-            .unwrap_or_default();
-        // Force to false because we handle this on our own in `exit_on_window_close_system`
-        window_settings.exit_on_all_closed = false;
-        app.insert_resource(window_settings);
+        let mut window_plugin = bevy::window::WindowPlugin::default();
+        window_plugin.exit_on_all_closed = false;
+        window_plugin.add_primary_window = config.add_primary_window;
+        window_plugin.window = self.window_descriptor.clone();
 
         // Insert window plugin, vulkano context, windows resource & pipeline data
-        app.add_plugin(bevy::window::WindowPlugin)
+        app.add_plugin(window_plugin)
             .init_non_send_resource::<BevyVulkanoWindows>()
             .init_resource::<PipelineSyncData>()
-            .insert_resource(vulkano_context);
+            .insert_resource(BevyVulkanoContext {
+                context: vulkano_context,
+            });
 
         // Create initial window
         handle_initial_window_events(&mut app.world, &event_loop);
@@ -130,10 +139,7 @@ impl Plugin for VulkanoWinitPlugin {
             .set_runner(winit_runner)
             .add_system_to_stage(CoreStage::PreUpdate, update_on_resize_system)
             .add_system_to_stage(CoreStage::PreUpdate, exit_on_window_close_system)
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                change_window.exclusive_system().label(ModifiesWindows),
-            );
+            .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
         // Add gui begin frame system
         #[cfg(feature = "gui")]
         {
@@ -298,15 +304,15 @@ fn change_window(world: &mut World) {
                     let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window.set_cursor_icon(converters::convert_cursor_icon(icon));
                 }
-                bevy::window::WindowCommand::SetCursorLockMode {
-                    locked,
+                bevy::window::WindowCommand::SetCursorGrabMode {
+                    grab_mode,
                 } => {
                     let window = vulkano_winit_windows.get_winit_window(id).unwrap();
                     window
-                        .set_cursor_grab(if locked {
-                            CursorGrabMode::Locked
-                        } else {
-                            CursorGrabMode::None
+                        .set_cursor_grab(match grab_mode {
+                            bevy::window::CursorGrabMode::Confined => CursorGrabMode::Confined,
+                            bevy::window::CursorGrabMode::Locked => CursorGrabMode::Locked,
+                            bevy::window::CursorGrabMode::None => CursorGrabMode::None,
                         })
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
@@ -341,6 +347,7 @@ fn change_window(world: &mut World) {
                     window.set_minimized(minimized)
                 }
                 bevy::window::WindowCommand::SetPosition {
+                    monitor_selection: _,
                     position,
                 } => {
                     let window = vulkano_winit_windows.get_winit_window(id).unwrap();
@@ -355,7 +362,7 @@ fn change_window(world: &mut World) {
                     let maybe_monitor = match monitor_selection {
                         bevy::window::MonitorSelection::Current => window.current_monitor(),
                         bevy::window::MonitorSelection::Primary => window.primary_monitor(),
-                        bevy::window::MonitorSelection::Number(n) => {
+                        bevy::window::MonitorSelection::Index(n) => {
                             window.available_monitors().nth(n)
                         }
                     };
@@ -880,7 +887,7 @@ fn handle_create_window_events(
 ) {
     let world = world.cell();
     let vulkano_config = world.get_non_send_resource::<VulkanoWinitConfig>().unwrap();
-    let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
+    let vulkano_context = world.get_resource::<BevyVulkanoContext>().unwrap();
     let mut vulkano_winit_windows = world
         .get_non_send_resource_mut::<BevyVulkanoWindows>()
         .unwrap();
@@ -892,7 +899,7 @@ fn handle_create_window_events(
             event_loop,
             create_window_event.id,
             &create_window_event.descriptor,
-            &vulkano_context,
+            &vulkano_context.context,
             &vulkano_config,
         );
         windows.add(window);
@@ -905,7 +912,7 @@ fn handle_create_window_events(
 fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
     let world = world.cell();
     let vulkano_config = world.get_non_send_resource::<VulkanoWinitConfig>().unwrap();
-    let vulkano_context = world.get_resource::<VulkanoContext>().unwrap();
+    let vulkano_context = world.get_resource::<BevyVulkanoContext>().unwrap();
     let mut vulkano_winit_windows = world
         .get_non_send_resource_mut::<BevyVulkanoWindows>()
         .unwrap();
@@ -917,7 +924,7 @@ fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
             event_loop,
             create_window_event.id,
             &create_window_event.descriptor,
-            &vulkano_context,
+            &vulkano_context.context,
             &vulkano_config,
         );
         windows.add(window);

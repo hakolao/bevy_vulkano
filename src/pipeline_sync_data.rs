@@ -1,9 +1,9 @@
 #[allow(unused)]
-use bevy::{utils::HashMap, window::WindowId};
+use bevy::{ecs::system::Resource, utils::HashMap, window::WindowId};
 use vulkano::sync::GpuFuture;
 
 /// Contains gpu future data per window to be used in Vulkano pipeline synchronization
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct PipelineSyncData {
     pub data_per_window: HashMap<WindowId, SyncData>,
 }
