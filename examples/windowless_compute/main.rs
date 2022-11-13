@@ -1,5 +1,5 @@
-use bevy::{app::AppExit, prelude::*, window::WindowSettings};
-use bevy_vulkano::{VulkanoWinitConfig, VulkanoWinitPlugin};
+use bevy::{app::AppExit, prelude::*};
+use bevy_vulkano::{BevyVulkanoContext, VulkanoWinitConfig, VulkanoWinitPlugin};
 use vulkano::{
     buffer::{BufferUsage, CpuAccessibleBuffer},
     command_buffer::{
@@ -12,19 +12,16 @@ use vulkano::{
     sync,
     sync::GpuFuture,
 };
-use vulkano_util::context::VulkanoContext;
 
 // https://github.com/vulkano-rs/vulkano/blob/master/examples/src/bin/basic-compute-shader.rs
 
 fn main() {
     App::new()
-        .insert_resource(WindowSettings {
-            // No window
+        .insert_non_send_resource(VulkanoWinitConfig {
             add_primary_window: false,
-            ..WindowSettings::default()
+            ..default()
         })
-        .insert_non_send_resource(VulkanoWinitConfig::default())
-        .add_plugin(VulkanoWinitPlugin)
+        .add_plugin(VulkanoWinitPlugin::default())
         .add_startup_system(run_compute_shader_once_then_exit)
         .run();
 }
@@ -33,7 +30,7 @@ fn main() {
 /// In a proper app you'd extract your compute shader pipeline ot an own struct and would run it on
 /// our data e.g. each frame. For example, ray tracing and drawing on an image.
 fn run_compute_shader_once_then_exit(
-    vulkano_context: Res<VulkanoContext>,
+    context: Res<BevyVulkanoContext>,
     mut app_exit_events: EventWriter<AppExit>,
 ) {
     // Create pipeline
@@ -55,9 +52,9 @@ fn run_compute_shader_once_then_exit(
                 "
             }
         }
-        let shader = cs::load(vulkano_context.device().clone()).unwrap();
+        let shader = cs::load(context.context.device().clone()).unwrap();
         ComputePipeline::new(
-            vulkano_context.device().clone(),
+            context.context.device().clone(),
             shader.entry_point("main").unwrap(),
             &(),
             None,
@@ -69,7 +66,7 @@ fn run_compute_shader_once_then_exit(
     let data_buffer = {
         let data_iter = (0..65536u32).collect::<Vec<u32>>();
         CpuAccessibleBuffer::from_iter(
-            vulkano_context.memory_allocator(),
+            context.context.memory_allocator(),
             BufferUsage {
                 storage_buffer: true,
                 ..BufferUsage::empty()
@@ -81,10 +78,10 @@ fn run_compute_shader_once_then_exit(
     };
 
     let command_buffer_allocator =
-        StandardCommandBufferAllocator::new(vulkano_context.device().clone(), Default::default());
+        StandardCommandBufferAllocator::new(context.context.device().clone(), Default::default());
 
     let descriptor_set_allocator =
-        StandardDescriptorSetAllocator::new(vulkano_context.device().clone());
+        StandardDescriptorSetAllocator::new(context.context.device().clone());
 
     // Create pipeline layout & descriptor set (data inputs)
     let layout = pipeline.layout().set_layouts().get(0).unwrap();
@@ -96,7 +93,7 @@ fn run_compute_shader_once_then_exit(
     // Build command buffer
     let mut builder = AutoCommandBufferBuilder::primary(
         &command_buffer_allocator,
-        vulkano_context.compute_queue().queue_family_index(),
+        context.context.compute_queue().queue_family_index(),
         CommandBufferUsage::OneTimeSubmit,
     )
     .unwrap();
@@ -113,8 +110,8 @@ fn run_compute_shader_once_then_exit(
     let command_buffer = builder.build().unwrap();
 
     // Execute the command buffer & wait on it to finish
-    let future = sync::now(vulkano_context.device().clone())
-        .then_execute(vulkano_context.compute_queue().clone(), command_buffer)
+    let future = sync::now(context.context.device().clone())
+        .then_execute(context.context.compute_queue().clone(), command_buffer)
         .unwrap()
         .then_signal_fence_and_flush()
         .unwrap();

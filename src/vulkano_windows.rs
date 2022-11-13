@@ -6,11 +6,14 @@ use bevy::{
         hashbrown::hash_map::{Iter, IterMut},
         HashMap,
     },
-    window::{PresentMode, Window, WindowDescriptor, WindowId, WindowMode},
+    window::{
+        MonitorSelection, PresentMode, RawHandleWrapper, Window, WindowDescriptor, WindowId,
+        WindowMode,
+    },
 };
 #[cfg(feature = "gui")]
 use egui_winit_vulkano::Gui;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use vulkano_util::{
     context::VulkanoContext,
     renderer::VulkanoWindowRenderer,
@@ -51,7 +54,11 @@ fn window_descriptor_to_vulkano_window_descriptor(
     };
     window_descriptor.resizable = wd.resizable;
     window_descriptor.decorations = wd.decorations;
-    window_descriptor.cursor_visible = wd.cursor_locked;
+    window_descriptor.cursor_visible = wd.cursor_visible;
+    window_descriptor.cursor_locked = match wd.cursor_grab_mode {
+        bevy::window::CursorGrabMode::Locked => true,
+        _ => false,
+    };
     window_descriptor.mode = match wd.mode {
         WindowMode::Windowed => vulkano_util::window::WindowMode::Windowed,
         WindowMode::Fullscreen => vulkano_util::window::WindowMode::Fullscreen,
@@ -112,21 +119,17 @@ impl BevyVulkanoWindows {
                     height,
                     position,
                     scale_factor_override,
+                    monitor: monitor_selection,
                     ..
                 } = window_descriptor;
 
                  match position {
                     bevy::window::WindowPosition::Automatic => { /* Window manager will handle position */ }
-                     bevy::window::WindowPosition::Centered(monitor_selection) => {
-                        let maybe_monitor = match monitor_selection {
-                            bevy::window::MonitorSelection::Current => {
-                                bevy::log::warn!("Can't select current monitor on window creation!");
-                                None
-                            }
-                            bevy::window::MonitorSelection::Primary => event_loop.primary_monitor(),
-                            bevy::window::MonitorSelection::Number(n) => event_loop.available_monitors().nth(*n),
-                        };
-
+                     bevy::window::WindowPosition::Centered  => {
+                         let maybe_monitor = match monitor_selection {
+                             MonitorSelection::Current => None,
+                             MonitorSelection::Primary => event_loop.primary_monitor(),
+                             MonitorSelection::Index(i) => event_loop.available_monitors().nth(*i)};
                         if let Some(monitor) = maybe_monitor {
                             let screen_size = monitor.size();
 
@@ -201,12 +204,14 @@ impl BevyVulkanoWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        if window_descriptor.cursor_locked {
-            match winit_window.set_cursor_grab(CursorGrabMode::Locked) {
-                Ok(_) => {}
-                Err(winit::error::ExternalError::NotSupported(_)) => {}
-                Err(err) => Err(err).unwrap(),
-            }
+        match winit_window.set_cursor_grab(match window_descriptor.cursor_grab_mode {
+            bevy::window::CursorGrabMode::Locked => CursorGrabMode::Locked,
+            bevy::window::CursorGrabMode::Confined => CursorGrabMode::Confined,
+            bevy::window::CursorGrabMode::None => CursorGrabMode::None,
+        }) {
+            Ok(_) => {}
+            Err(winit::error::ExternalError::NotSupported(_)) => {}
+            Err(err) => Err(err).unwrap(),
         }
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
@@ -222,6 +227,10 @@ impl BevyVulkanoWindows {
         let inner_size = winit_window.inner_size();
         let scale_factor = winit_window.scale_factor();
         let raw_window_handle = winit_window.raw_window_handle();
+        let raw_window_handle_wrapper = RawHandleWrapper {
+            window_handle: raw_window_handle,
+            display_handle: winit_window.raw_display_handle(),
+        };
 
         let window_renderer = VulkanoWindowRenderer::new(
             vulkano_context,
@@ -259,8 +268,7 @@ impl BevyVulkanoWindows {
             inner_size.height,
             scale_factor,
             position,
-            // Transmuting due to crate version diff...
-            unsafe { std::mem::transmute(raw_window_handle) },
+            Some(raw_window_handle_wrapper),
         )
     }
 

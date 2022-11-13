@@ -10,41 +10,44 @@ use bevy::{
     time::FixedTimestep,
     window::{close_on_esc, WindowId, WindowMode},
 };
-use bevy_vulkano::{BevyVulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin};
+use bevy_vulkano::{
+    BevyVulkanoContext, BevyVulkanoWindows, VulkanoWinitConfig, VulkanoWinitPlugin,
+};
 use vulkano::image::ImageAccess;
-use vulkano_util::context::VulkanoContext;
 
 use crate::{game_of_life::GameOfLifeComputePipeline, place_over_frame::RenderPassPlaceOverFrame};
 
 pub struct PluginBundle;
 
 impl PluginGroup for PluginBundle {
-    fn build(&mut self, group: &mut PluginGroupBuilder) {
-        // Minimum plugins for the demo
-        // Core needed for fixed time steps
-        group.add(bevy::core::CorePlugin);
-        group.add(bevy::input::InputPlugin);
-        group.add(bevy::time::TimePlugin);
-        // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
-        // Bevy winit and render should be excluded
-        group.add(VulkanoWinitPlugin);
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<PluginBundle>()
+            // Minimum plugins for the demo
+            // Core needed for fixed time steps
+            .add(bevy::core::CorePlugin::default())
+            .add(bevy::input::InputPlugin)
+            .add(bevy::time::TimePlugin)
+            // Don't add default bevy plugins or WinitPlugin. This owns "core loop" (runner).
+            // Bevy winit and render should be excluded
+            .add(VulkanoWinitPlugin::default())
     }
 }
 
 fn main() {
     App::new()
         .insert_non_send_resource(VulkanoWinitConfig::default())
-        .insert_resource(WindowDescriptor {
-            width: 1024.0,
-            height: 1024.0,
-            title: "Bevy Vulkano Game Of Life".to_string(),
-            present_mode: bevy::window::PresentMode::Immediate,
-            resizable: true,
-            mode: WindowMode::Windowed,
-            position: WindowPosition::Centered(MonitorSelection::Primary),
-            ..WindowDescriptor::default()
-        })
-        .add_plugins(PluginBundle)
+        .add_plugins(PluginBundle.set(VulkanoWinitPlugin {
+            window_descriptor: WindowDescriptor {
+                width: 1024.0,
+                height: 1024.0,
+                title: "Bevy Vulkano Game Of Life".to_string(),
+                present_mode: bevy::window::PresentMode::Immediate,
+                resizable: true,
+                mode: WindowMode::Windowed,
+                position: WindowPosition::Centered,
+                ..WindowDescriptor::default()
+            },
+        }))
         .add_startup_system(create_pipelines)
         .add_system(close_on_esc)
         .add_system(draw_life_system)
@@ -70,19 +73,19 @@ fn update_window_title_system(vulkano_windows: NonSend<BevyVulkanoWindows>, time
 /// Creates our simulation pipeline & render pipeline
 fn create_pipelines(
     mut commands: Commands,
-    vulkano_context: NonSend<VulkanoContext>,
-    vulkano_windows: NonSend<BevyVulkanoWindows>,
+    context: NonSend<BevyVulkanoContext>,
+    windows: NonSend<BevyVulkanoWindows>,
 ) {
-    let primary_window = vulkano_windows.get_primary_window_renderer().unwrap();
+    let primary_window = windows.get_primary_window_renderer().unwrap();
     // Create compute pipeline to simulate game of life
     let game_of_life_pipeline = GameOfLifeComputePipeline::new(
-        vulkano_context.memory_allocator(),
+        context.context.memory_allocator(),
         primary_window.graphics_queue(),
         [512, 512],
     );
     // Create our render pass
     let place_over_frame = RenderPassPlaceOverFrame::new(
-        vulkano_context.memory_allocator().clone(),
+        context.context.memory_allocator().clone(),
         primary_window.graphics_queue(),
         primary_window.swapchain_format(),
     );
