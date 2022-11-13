@@ -104,6 +104,11 @@ cargo run --example windowless_compute
 cargo run --example game_of_life
 ```
 
+### Disclaimer
+While you can use `bevy_vulkano` with bevy `0.9`,
+the windowing features are not quite up to date with latest `bevy_window`.
+Feel free to make contributions if some feature is missing.
+
 ### Contributing
 
 Feel free to open a PR to improve or fix anything that you see would be useful.
