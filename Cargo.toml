@@ -1,6 +1,6 @@
 [package]
 name = "bevy_vulkano"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 authors = ["Okko Hakola <okkohakola@gmail.com>"]
 description = "Vulkano Backend for Bevy"
@@ -29,7 +29,7 @@ approx = "0.5.1"
 raw-window-handle = "0.5"
 
 [dependencies.bevy]
-version = "0.9.0"
+version = "0.9.1"
 default-features = false
 features = []
 
