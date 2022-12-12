@@ -51,10 +51,7 @@ fn rand_grid(
 ) -> Arc<CpuAccessibleBuffer<[u32]>> {
     CpuAccessibleBuffer::from_iter(
         allocator,
-        BufferUsage {
-            storage_buffer: true,
-            ..BufferUsage::empty()
-        },
+        BufferUsage::STORAGE_BUFFER,
         false,
         (0..(size[0] * size[1]))
             .map(|_| rand::thread_rng().gen_range(0u32..=1))
@@ -89,12 +86,7 @@ impl GameOfLifeComputePipeline {
             compute_queue.clone(),
             size,
             Format::R8G8B8A8_UNORM,
-            ImageUsage {
-                sampled: true,
-                storage: true,
-                transfer_dst: true,
-                ..ImageUsage::empty()
-            },
+            ImageUsage::SAMPLED | ImageUsage::STORAGE | ImageUsage::TRANSFER_DST,
         )
         .unwrap();
         GameOfLifeComputePipeline {

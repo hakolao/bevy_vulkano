@@ -67,10 +67,7 @@ fn run_compute_shader_once_then_exit(
         let data_iter = (0..65536u32).collect::<Vec<u32>>();
         CpuAccessibleBuffer::from_iter(
             context.context.memory_allocator(),
-            BufferUsage {
-                storage_buffer: true,
-                ..BufferUsage::empty()
-            },
+            BufferUsage::STORAGE_BUFFER,
             false,
             data_iter,
         )

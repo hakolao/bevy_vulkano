@@ -242,7 +242,6 @@ impl BevyVulkanoWindows {
             move |ci| {
                 ci.image_format = Some(vulkano::format::Format::B8G8R8A8_SRGB);
             },
-            vulkano_context.memory_allocator().clone(),
         );
 
         let _is_gui_overlay = config.is_gui_overlay;
