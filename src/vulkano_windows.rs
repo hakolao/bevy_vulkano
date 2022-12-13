@@ -91,7 +91,7 @@ impl BevyVulkanoWindows {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
             use winit::platform::windows::WindowBuilderExtWindows;
-            winit::window::WindowBuilder::new().with_drag_and_drop(false)
+            winit::window::WindowBuilder::new().with_drag_and_drop(true)
         };
 
         #[cfg(not(target_os = "windows"))]
