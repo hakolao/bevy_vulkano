@@ -149,7 +149,7 @@ impl PixelsDrawPipeline {
         })
         .unwrap();
         PersistentDescriptorSet::new(&self.descriptor_set_allocator, layout.clone(), [
-            WriteDescriptorSet::image_view_sampler(0, image.clone(), sampler),
+            WriteDescriptorSet::image_view_sampler(0, image, sampler),
         ])
         .unwrap()
     }
