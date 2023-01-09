@@ -67,7 +67,7 @@ fn update_window_title_system(vulkano_windows: NonSend<BevyVulkanoWindows>, time
         .get_winit_window(WindowId::primary())
         .unwrap();
     let fps = 1.0 / time.delta_seconds();
-    primary.set_title(&format!("Bevy Vulkano Game Of Life {:.2}", fps));
+    primary.set_title(&format!("Bevy Vulkano Game Of Life {fps:.2}"));
 }
 
 /// Creates our simulation pipeline & render pipeline
