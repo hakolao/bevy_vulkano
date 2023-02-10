@@ -62,6 +62,7 @@ pub struct VulkanoWinitConfig {
     /// Whether the image gets cleared each frame by gui integration. This is only relevant if
     /// `gui` feature is set.
     /// Default is true, thus you need to clear the image you intend to draw gui on
+    #[cfg(feature = "gui")]
     pub is_gui_overlay: bool,
     /// Control whether you want to run the app with or without a window
     pub add_primary_window: bool,
@@ -72,6 +73,7 @@ impl Default for VulkanoWinitConfig {
         VulkanoWinitConfig {
             return_from_run: false,
             vulkano_config: VulkanoConfig::default(),
+            #[cfg(feature = "gui")]
             is_gui_overlay: true,
             add_primary_window: true,
         }

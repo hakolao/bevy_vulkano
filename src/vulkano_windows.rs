@@ -12,7 +12,7 @@ use bevy::{
     },
 };
 #[cfg(feature = "gui")]
-use egui_winit_vulkano::Gui;
+use egui_winit_vulkano::{Gui, GuiConfig};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use vulkano_util::{
     context::VulkanoContext,
@@ -86,7 +86,7 @@ impl BevyVulkanoWindows {
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
         vulkano_context: &VulkanoContext,
-        config: &VulkanoWinitConfig,
+        _config: &VulkanoWinitConfig,
     ) -> Window {
         #[cfg(target_os = "windows")]
         let mut winit_window_builder = {
@@ -245,15 +245,17 @@ impl BevyVulkanoWindows {
             vulkano_context.memory_allocator().clone(),
         );
 
-        let _is_gui_overlay = config.is_gui_overlay;
         #[cfg(feature = "gui")]
         {
             let gui = Gui::new(
                 event_loop,
                 window_renderer.surface(),
-                Some(window_renderer.swapchain_format()),
                 window_renderer.graphics_queue(),
-                _is_gui_overlay,
+                GuiConfig {
+                    is_overlay: _config.is_gui_overlay,
+                    preferred_format: Some(window_renderer.swapchain_format()),
+                    ..Default::default()
+                },
             );
             self.windows.insert(winit_id, (window_renderer, gui));
         }

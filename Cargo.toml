@@ -22,7 +22,7 @@ gui = ["egui_winit_vulkano"]
 vulkano = "0.32"
 vulkano-util = "0.32"
 vulkano-shaders = "0.32"
-egui_winit_vulkano = { version = "0.22.0", optional = true, default_features = false, features = [] }
+egui_winit_vulkano = { version = "0.23.0", optional = true, default_features = false, features = [] }
 winit = "0.27"
 image = "0.24.5"
 approx = "0.5.1"
