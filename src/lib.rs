@@ -26,7 +26,7 @@ use bevy::{
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         touch::TouchInput,
     },
-    math::{ivec2, DVec2, Vec2},
+    math::{ivec2, Vec2},
     prelude::*,
     utils::HashSet,
     window::{
@@ -416,9 +416,11 @@ fn change_window(world: &mut World) {
     if !removed_windows.is_empty() {
         let mut app_exit_events = world.resource_mut::<Events<AppExit>>();
         let mut window_close_events = world.resource_mut::<Events<WindowClosed>>();
+
         for window in removed_windows {
             let (app_close, window_close) =
                 close_window(window, &mut vulkano_winit_windows, &mut pipeline_sync_data);
+
             if app_close {
                 app_exit_events.send(AppExit);
             } else if window_close {
@@ -617,7 +619,7 @@ pub fn winit_runner_with(mut app: App) {
                     let mut state: SystemState<(
                         Commands,
                         NonSendMut<BevyVulkanoWindows>,
-                        Query<(&mut Window)>,
+                        Query<&mut Window>,
                     )> = SystemState::from_world(&mut app.world);
 
                     let (mut commands, mut vulkano_winit_windows, mut windows) =
@@ -1001,14 +1003,16 @@ fn close_window(
     pipeline_data: &mut PipelineSyncData,
     // App close?, Window was closed?
 ) -> (bool, bool) {
+    // TODO: How to check for primary window? There is a PrimaryWindow Tag Component
+
     // Close app on primary window exit
     if window_id == WindowId::primary() {
         (true, false)
     }
     // But don't close app on secondary window exit. Instead cleanup...
     else {
-        pipeline_data.remove(window_id);
-        let winit_id = if let Some(winit_window) = windows.get_winit_window(window_id) {
+        pipeline_data.remove(window_entity);
+        let winit_id = if let Some(winit_window) = windows.get_winit_window(window_entity) {
             winit_window.id()
         } else {
             // Window already closed
