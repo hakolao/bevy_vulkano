@@ -1,36 +1,29 @@
+use bevy::prelude::Entity;
 #[allow(unused)]
-use bevy::{ecs::system::Resource, utils::HashMap, window::WindowId};
+use bevy::{ecs::system::Resource, utils::HashMap};
 use vulkano::sync::GpuFuture;
 
 /// Contains gpu future data per window to be used in Vulkano pipeline synchronization
 #[derive(Default, Resource)]
 pub struct PipelineSyncData {
-    pub data_per_window: HashMap<WindowId, SyncData>,
+    pub data_per_window: HashMap<Entity, SyncData>,
 }
 
 impl PipelineSyncData {
     pub fn add(&mut self, data: SyncData) {
-        self.data_per_window.insert(data.window_id, data);
+        self.data_per_window.insert(data.window_entity, data);
     }
 
-    pub fn remove(&mut self, id: WindowId) {
+    pub fn remove(&mut self, id: Entity) {
         self.data_per_window.remove(&id);
     }
 
-    pub fn get(&self, id: WindowId) -> Option<&SyncData> {
+    pub fn get(&self, id: Entity) -> Option<&SyncData> {
         self.data_per_window.get(&id)
     }
 
-    pub fn get_mut(&mut self, id: WindowId) -> Option<&mut SyncData> {
+    pub fn get_mut(&mut self, id: Entity) -> Option<&mut SyncData> {
         self.data_per_window.get_mut(&id)
-    }
-
-    pub fn get_primary(&self) -> Option<&SyncData> {
-        self.get(WindowId::primary())
-    }
-
-    pub fn get_primary_mut(&mut self) -> Option<&mut SyncData> {
-        self.get_mut(WindowId::primary())
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &SyncData> {
@@ -44,7 +37,7 @@ impl PipelineSyncData {
 
 /// Wrapper for useful data for rendering during pipeline
 pub struct SyncData {
-    pub window_id: WindowId,
+    pub window_entity: Entity,
     pub before: Option<Box<dyn GpuFuture>>,
     pub after: Option<Box<dyn GpuFuture>>,
 }

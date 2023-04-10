@@ -2,13 +2,13 @@
 
 use bevy::{
     math::IVec2,
+    prelude::Entity,
     utils::{
         hashbrown::hash_map::{Iter, IterMut},
         HashMap,
     },
     window::{
-        MonitorSelection, PresentMode, RawHandleWrapper, Window, WindowDescriptor, WindowId,
-        WindowMode,
+        MonitorSelection, PresentMode, RawHandleWrapper, Window, WindowMode, WindowResolution,
     },
 };
 #[cfg(feature = "gui")]
@@ -24,18 +24,20 @@ use vulkano_util::{
 };
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
-    window::CursorGrabMode,
+    window::{CursorGrabMode, WindowId},
 };
 
 use crate::VulkanoWinitConfig;
 
+pub const PRIMARY_WINDOW_ID: WindowId = WindowId::from(0);
+
 fn window_descriptor_to_vulkano_window_descriptor(
-    wd: &WindowDescriptor,
+    wd: &Window,
     position: Option<[f32; 2]>,
 ) -> VulkanoWindowDescriptor {
     let mut window_descriptor = VulkanoWindowDescriptor::default();
-    window_descriptor.width = wd.width;
-    window_descriptor.height = wd.height;
+    window_descriptor.width = wd.width();
+    window_descriptor.height = wd.height();
     window_descriptor.position = position;
     window_descriptor.resize_constraints = VulkanoWindowResizeConstraints {
         min_width: wd.resize_constraints.min_width,
@@ -43,7 +45,7 @@ fn window_descriptor_to_vulkano_window_descriptor(
         max_width: wd.resize_constraints.max_width,
         max_height: wd.resize_constraints.max_height,
     };
-    window_descriptor.scale_factor_override = wd.scale_factor_override;
+    window_descriptor.scale_factor_override = wd.resolution.scale_factor_override();
     window_descriptor.title = wd.title.clone();
     window_descriptor.present_mode = match wd.present_mode {
         PresentMode::Fifo => vulkano::swapchain::PresentMode::Fifo,
@@ -54,8 +56,8 @@ fn window_descriptor_to_vulkano_window_descriptor(
     };
     window_descriptor.resizable = wd.resizable;
     window_descriptor.decorations = wd.decorations;
-    window_descriptor.cursor_visible = wd.cursor_visible;
-    window_descriptor.cursor_locked = match wd.cursor_grab_mode {
+    window_descriptor.cursor_visible = wd.cursor.visible;
+    window_descriptor.cursor_locked = match wd.cursor.grab_mode {
         bevy::window::CursorGrabMode::Locked => true,
         _ => false,
     };
@@ -75,16 +77,18 @@ pub struct BevyVulkanoWindows {
     pub(crate) windows: HashMap<winit::window::WindowId, VulkanoWindowRenderer>,
     #[cfg(feature = "gui")]
     pub(crate) windows: HashMap<winit::window::WindowId, (VulkanoWindowRenderer, Gui)>,
-    pub(crate) window_id_to_winit: HashMap<WindowId, winit::window::WindowId>,
-    pub(crate) winit_to_window_id: HashMap<winit::window::WindowId, WindowId>,
+    /// Maps entities to `winit` window identifiers.
+    pub(crate) entity_to_winit: HashMap<Entity, winit::window::WindowId>,
+    /// Maps `winit` window identifiers to entities.
+    pub(crate) winit_to_entity: HashMap<winit::window::WindowId, Entity>,
 }
 
 impl BevyVulkanoWindows {
     pub fn create_window(
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
-        window_id: WindowId,
-        window_descriptor: &WindowDescriptor,
+        window_entity: Entity,
+        window: &Window,
         vulkano_context: &VulkanoContext,
         _config: &VulkanoWinitConfig,
     ) -> Window {
@@ -97,7 +101,7 @@ impl BevyVulkanoWindows {
         #[cfg(not(target_os = "windows"))]
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        winit_window_builder = match window_descriptor.mode {
+        winit_window_builder = match window.mode {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
@@ -109,24 +113,26 @@ impl BevyVulkanoWindows {
             WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(get_fitting_videomode(
                     &event_loop.primary_monitor().unwrap(),
-                    window_descriptor.width as u32,
-                    window_descriptor.height as u32,
+                    window.width() as u32,
+                    window.height() as u32,
                 )),
             )),
             _ => {
-                let WindowDescriptor {
-                    width,
-                    height,
+                let Window {
                     position,
-                    scale_factor_override,
-                    monitor: monitor_selection,
+                    resolution: WindowResolution{
+                        physical_width: width,
+                        physical_height: height,
+                        scale_factor_override,
+                        ..
+                    },
                     ..
-                } = window_descriptor;
+                } = window;
 
                  match position {
                     bevy::window::WindowPosition::Automatic => { /* Window manager will handle position */ }
-                     bevy::window::WindowPosition::Centered  => {
-                         let maybe_monitor = match monitor_selection {
+                     bevy::window::WindowPosition::Centered(monitor)  => {
+                         let maybe_monitor = match monitor {
                              MonitorSelection::Current => None,
                              MonitorSelection::Primary => event_loop.primary_monitor(),
                              MonitorSelection::Index(i) => event_loop.available_monitors().nth(*i)};
@@ -149,7 +155,7 @@ impl BevyVulkanoWindows {
 
                             winit_window_builder = winit_window_builder.with_position(position);
                         } else {
-                            bevy::log::warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                            bevy::log::warn!("Couldn't get monitor selected with: {monitor:?}");
                         }
                     }
                      bevy::window::WindowPosition::At(position) => {
@@ -175,12 +181,12 @@ impl BevyVulkanoWindows {
                         .with_inner_size(winit::dpi::LogicalSize::new(*width, *height))
                 }
             }
-            .with_resizable(window_descriptor.resizable)
-            .with_decorations(window_descriptor.decorations)
-            .with_transparent(window_descriptor.transparent),
+            .with_resizable(window.resizable)
+            .with_decorations(window.decorations)
+            .with_transparent(window.transparent),
         };
 
-        let constraints = window_descriptor.resize_constraints.check_constraints();
+        let constraints = window.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
             width: constraints.min_width,
             height: constraints.min_height,
@@ -200,11 +206,11 @@ impl BevyVulkanoWindows {
             };
 
         #[allow(unused_mut)]
-        let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
+        let mut winit_window_builder = winit_window_builder.with_title(&window.title);
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        match winit_window.set_cursor_grab(match window_descriptor.cursor_grab_mode {
+        match winit_window.set_cursor_grab(match window.cursor.grab_mode {
             bevy::window::CursorGrabMode::Locked => CursorGrabMode::Locked,
             bevy::window::CursorGrabMode::Confined => CursorGrabMode::Confined,
             bevy::window::CursorGrabMode::None => CursorGrabMode::None,
@@ -214,11 +220,13 @@ impl BevyVulkanoWindows {
             Err(err) => Err(err).unwrap(),
         }
 
-        winit_window.set_cursor_visible(window_descriptor.cursor_visible);
+        winit_window.set_cursor_visible(window.cursor.visible);
 
         let winit_id = winit_window.id();
-        self.window_id_to_winit.insert(window_id, winit_id);
-        self.winit_to_window_id.insert(winit_id, window_id);
+        self.entity_to_winit
+            .insert(window_entity, winit_window.id());
+        self.winit_to_entity
+            .insert(winit_window.id(), window_entity);
 
         let position = winit_window
             .outer_position()
@@ -236,13 +244,12 @@ impl BevyVulkanoWindows {
             vulkano_context,
             winit_window,
             &window_descriptor_to_vulkano_window_descriptor(
-                window_descriptor,
+                window,
                 position.map(|p| [p.x as f32, p.y as f32]),
             ),
             move |ci| {
                 ci.image_format = Some(vulkano::format::Format::B8G8R8A8_SRGB);
             },
-            vulkano_context.memory_allocator().clone(),
         );
 
         #[cfg(feature = "gui")]
@@ -263,38 +270,35 @@ impl BevyVulkanoWindows {
         #[cfg(not(feature = "gui"))]
         self.windows.insert(winit_id, window_renderer);
 
-        Window::new(
-            window_id,
-            window_descriptor,
-            inner_size.width,
-            inner_size.height,
-            scale_factor,
-            position,
-            Some(raw_window_handle_wrapper),
-        )
+        // Window::new(
+        //     window_id,
+        //     window_descriptor,
+        //     position,
+        //     Some(raw_window_handle_wrapper),
+        // )
+
+        Window {
+            position: bevy::window::WindowPosition::At(position.unwrap()),
+            resolution: WindowResolution::new(inner_size.width as f32, inner_size.height as f32)
+                .with_scale_factor_override(scale_factor),
+            ..window.clone()
+        }
     }
 
     #[cfg(not(feature = "gui"))]
-    pub fn get_primary_window_renderer_mut(&mut self) -> Option<&mut VulkanoWindowRenderer> {
-        self.get_window_renderer_mut(WindowId::primary())
-    }
-
-    #[cfg(not(feature = "gui"))]
-    pub fn get_primary_window_renderer(&self) -> Option<&VulkanoWindowRenderer> {
-        self.get_window_renderer(WindowId::primary())
-    }
-
-    #[cfg(not(feature = "gui"))]
-    pub fn get_window_renderer_mut(&mut self, id: WindowId) -> Option<&mut VulkanoWindowRenderer> {
-        self.window_id_to_winit
-            .get(&id)
+    pub fn get_window_renderer_mut(
+        &mut self,
+        entity: Entity,
+    ) -> Option<&mut VulkanoWindowRenderer> {
+        self.entity_to_winit
+            .get(&entity)
             .and_then(|id| self.windows.get_mut(id))
     }
 
     #[cfg(not(feature = "gui"))]
-    pub fn get_window_renderer(&self, id: WindowId) -> Option<&VulkanoWindowRenderer> {
-        self.window_id_to_winit
-            .get(&id)
+    pub fn get_window_renderer(&self, entity: Entity) -> Option<&VulkanoWindowRenderer> {
+        self.entity_to_winit
+            .get(&entity)
             .and_then(|id| self.windows.get(id))
     }
 
@@ -325,10 +329,6 @@ impl BevyVulkanoWindows {
             .and_then(|id| self.windows.get(id))
     }
 
-    pub fn get_primary_winit_window(&self) -> Option<&winit::window::Window> {
-        self.get_winit_window(WindowId::primary())
-    }
-
     #[cfg(feature = "gui")]
     pub fn get_winit_window(&self, id: WindowId) -> Option<&winit::window::Window> {
         self.window_id_to_winit
@@ -338,15 +338,15 @@ impl BevyVulkanoWindows {
     }
 
     #[cfg(not(feature = "gui"))]
-    pub fn get_winit_window(&self, id: WindowId) -> Option<&winit::window::Window> {
-        self.window_id_to_winit
-            .get(&id)
+    pub fn get_winit_window(&self, entity: Entity) -> Option<&winit::window::Window> {
+        self.entity_to_winit
+            .get(&entity)
             .and_then(|id| self.windows.get(id))
             .map(|r| r.window())
     }
 
-    pub fn get_window_id(&self, id: winit::window::WindowId) -> Option<WindowId> {
-        self.winit_to_window_id.get(&id).cloned()
+    pub fn get_window_entity(&self, window_id: WindowId) -> Option<Entity> {
+        self.winit_to_entity.get(&window_id).cloned()
     }
 
     #[cfg(not(feature = "gui"))]
