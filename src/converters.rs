@@ -35,16 +35,16 @@ pub fn convert_mouse_button(mouse_button: winit::event::MouseButton) -> MouseBut
 
 pub fn convert_touch_input(
     touch_input: winit::event::Touch,
-    location: winit::dpi::LogicalPosition<f32>,
+    location: winit::dpi::LogicalPosition<f64>,
 ) -> TouchInput {
     TouchInput {
         phase: match touch_input.phase {
             winit::event::TouchPhase::Started => TouchPhase::Started,
             winit::event::TouchPhase::Moved => TouchPhase::Moved,
             winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+            winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
         },
-        position: Vec2::new(location.x, location.y),
+        position: Vec2::new(location.x as f32, location.y as f32),
         force: touch_input.force.map(|f| match f {
             winit::event::Force::Calibrated {
                 force,
@@ -266,5 +266,13 @@ pub fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon
         CursorIcon::NwseResize => winit::window::CursorIcon::NwseResize,
         CursorIcon::ColResize => winit::window::CursorIcon::ColResize,
         CursorIcon::RowResize => winit::window::CursorIcon::RowResize,
+    }
+}
+
+pub fn convert_window_level(window_level: WindowLevel) -> winit::window::WindowLevel {
+    match window_level {
+        WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
+        WindowLevel::Normal => winit::window::WindowLevel::Normal,
+        WindowLevel::AlwaysOnTop => winit::window::WindowLevel::AlwaysOnTop,
     }
 }

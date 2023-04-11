@@ -20,7 +20,7 @@ links           = ["gui", "egui_winit_vulkano/links"]
 
 [dependencies]
 approx = "0.5.1"
-egui_winit_vulkano = { version = "0.23.0", optional = true, default_features = false, features = [
+egui_winit_vulkano = { version = "0.24.0", optional = true, default_features = false, features = [
 ] }
 image = "0.24.5"
 raw-window-handle = "0.5"
