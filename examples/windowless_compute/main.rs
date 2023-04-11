@@ -18,6 +18,8 @@ use vulkano::{
 
 fn main() {
     App::new()
+        .add_plugin(bevy::log::LogPlugin::default())
+        .add_plugin(bevy::core::TaskPoolPlugin::default())
         .add_plugin(WindowPlugin {
             primary_window: None,
             ..default()
