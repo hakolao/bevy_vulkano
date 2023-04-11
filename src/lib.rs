@@ -111,7 +111,7 @@ impl Plugin for VulkanoWinitPlugin {
         };
 
         app.init_non_send_resource::<BevyVulkanoWindows>()
-            .insert_non_send_resource(vulkano_context)
+            .insert_resource(vulkano_context)
             .insert_non_send_resource(new_config)
             .set_runner(winit_runner)
             // exit_on_all_closed only uses the query to determine if the query is empty,
@@ -135,7 +135,7 @@ impl Plugin for VulkanoWinitPlugin {
             Query<(Entity, &mut Window)>,
             EventWriter<WindowCreated>,
             NonSendMut<BevyVulkanoWindows>,
-            NonSend<BevyVulkanoContext>,
+            Res<BevyVulkanoContext>,
             NonSend<BevyVulkanoSettings>,
         )> = SystemState::from_world(&mut app.world);
 
@@ -290,7 +290,7 @@ pub fn winit_runner(mut app: App) {
         Query<(Entity, &mut Window), Added<Window>>,
         EventWriter<WindowCreated>,
         NonSendMut<BevyVulkanoWindows>,
-        NonSend<BevyVulkanoContext>,
+        Res<BevyVulkanoContext>,
         NonSend<BevyVulkanoSettings>,
     )> = SystemState::from_world(&mut app.world);
 
@@ -332,6 +332,7 @@ pub fn winit_runner(mut app: App) {
                 winit_state.low_power_event = false;
                 winit_state.timeout_reached = auto_timeout_reached || manual_timeout_reached;
             }
+            #[allow(unused_mut)]
             event::Event::WindowEvent {
                 event,
                 window_id: winit_window_id,

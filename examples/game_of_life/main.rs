@@ -73,7 +73,7 @@ fn update_window_title_system(mut windows: Query<&mut Window>, time: ResMut<Time
 fn create_pipelines(
     mut commands: Commands,
     window_query: Query<Entity, With<Window>>,
-    context: NonSend<BevyVulkanoContext>,
+    context: Res<BevyVulkanoContext>,
     windows: NonSend<BevyVulkanoWindows>,
 ) {
     let window_entity = window_query.single();

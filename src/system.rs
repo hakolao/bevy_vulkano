@@ -2,7 +2,7 @@ use bevy::{
     log::{error, info, warn},
     prelude::{
         Changed, Commands, Component, Entity, EventWriter, Mut, NonSend, NonSendMut, Query,
-        RemovedComponents, Resource, Window,
+        RemovedComponents, Res, Resource, Window,
     },
     utils::HashMap,
     window::{RawHandleWrapper, WindowClosed, WindowCreated},
@@ -29,7 +29,7 @@ pub(crate) fn create_window<'a>(
     created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,
     mut vulkano_windows: NonSendMut<BevyVulkanoWindows>,
-    context: NonSend<BevyVulkanoContext>,
+    context: Res<BevyVulkanoContext>,
     settings: NonSend<BevyVulkanoSettings>,
 ) {
     for (entity, mut window) in created_windows {
