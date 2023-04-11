@@ -36,6 +36,7 @@ use bevy::{
         WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
     },
 };
+pub use config::*;
 #[cfg(feature = "gui")]
 pub use egui_winit_vulkano;
 use vulkano_util::context::{VulkanoConfig, VulkanoContext};
@@ -54,10 +55,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
-use crate::{
-    config::{BevyVulkanoSettings, UpdateMode},
-    system::{changed_window, create_window, despawn_window, CachedWindow},
-};
+use crate::system::{changed_window, create_window, despawn_window, CachedWindow};
 
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
@@ -103,8 +101,9 @@ impl Plugin for VulkanoWinitPlugin {
         let BevyVulkanoSettings {
             vulkano_config, ..
         } = config;
-        let vulkano_context = VulkanoContext::new(vulkano_config);
-
+        let vulkano_context = BevyVulkanoContext {
+            context: VulkanoContext::new(vulkano_config),
+        };
         // Place config back as resource..
         let new_config = BevyVulkanoSettings {
             vulkano_config: VulkanoConfig::default(),
@@ -127,7 +126,7 @@ impl Plugin for VulkanoWinitPlugin {
 
         #[cfg(feature = "gui")]
         {
-            app.add_systems(begin_egui_frame_system.in_base_set(bevy::prelude::CoreSet::PreUpdate));
+            app.add_system(begin_egui_frame_system.in_base_set(bevy::prelude::CoreSet::PreUpdate));
         }
 
         let mut create_window_system_state: SystemState<(
@@ -340,7 +339,7 @@ pub fn winit_runner(mut app: App) {
             } => {
                 // Fetch and prepare details from the world
                 let mut system_state: SystemState<(
-                    NonSend<BevyVulkanoWindows>,
+                    NonSendMut<BevyVulkanoWindows>,
                     Query<(&mut Window, &mut CachedWindow)>,
                     WindowEvents,
                     InputEvents,
@@ -348,7 +347,7 @@ pub fn winit_runner(mut app: App) {
                     EventWriter<FileDragAndDrop>,
                 )> = SystemState::new(&mut app.world);
                 let (
-                    vulkano_windows,
+                    mut vulkano_windows,
                     mut window_query,
                     mut window_events,
                     mut input_events,
@@ -386,7 +385,7 @@ pub fn winit_runner(mut app: App) {
                         vulkano_windows.get_vulkano_window_mut(window_entity)
                     {
                         // Update egui with the window event. If false, we should skip the event in bevy
-                        if vulkano_window.gui.update(window_event) {
+                        if vulkano_window.gui.update(&event) {
                             return;
                         }
                     }

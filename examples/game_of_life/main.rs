@@ -117,7 +117,7 @@ fn draw_life_system(
                 .width_height();
             let draw_pos = IVec2::new(
                 (image_size[0] as f32 * normalized.x) as i32,
-                (image_size[1] as f32 * normalized.y) as i32,
+                (image_size[1] as f32 - image_size[1] as f32 * normalized.y) as i32,
             );
             game_of_life.draw_life(draw_pos);
         }
