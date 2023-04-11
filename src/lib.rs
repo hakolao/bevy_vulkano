@@ -13,33 +13,31 @@ This allows you to create your own pipelines for rendering.
  */
 mod config;
 mod converters;
-mod pipeline_sync_data;
 mod system;
 mod vulkano_windows;
 
 use bevy::{
-    app::{App, AppExit, Plugin},
+    app::{App, AppExit, CoreSet::Last, Plugin},
     ecs::{
         event::{Events, ManualEventReader},
-        system::SystemState,
+        system::{SystemParam, SystemState},
     },
     input::{
         keyboard::KeyboardInput,
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         touch::TouchInput,
     },
-    math::{ivec2, Vec2},
+    math::{ivec2, DVec2, Vec2},
     prelude::*,
-    utils::HashSet,
+    utils::Instant,
     window::{
-        CursorEntered, CursorLeft, CursorMoved, ExitCondition, FileDragAndDrop, ReceivedCharacter,
-        WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed, WindowCreated,
-        WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
+        exit_on_all_closed, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop,
+        ReceivedCharacter, RequestRedraw, WindowBackendScaleFactorChanged, WindowCloseRequested,
+        WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
     },
 };
 #[cfg(feature = "gui")]
 pub use egui_winit_vulkano;
-pub use pipeline_sync_data::*;
 use vulkano_util::context::{VulkanoConfig, VulkanoContext};
 pub use vulkano_windows::*;
 
@@ -56,14 +54,21 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopWindowTarget},
 };
 
+use crate::{
+    config::{BevyVulkanoSettings, UpdateMode},
+    system::{changed_window, create_window, despawn_window, CachedWindow},
+};
+
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: once_cell::sync::OnceCell<AndroidApp> = once_cell::sync::OnceCell::new();
 
 /// A [`Plugin`] that utilizes [`winit`] for window creation and event loop management.
+/// In addition, windows include custom render functionality with Vulkano.
+/// This is intended to replace `bevy_winit`.
 #[derive(Default)]
-pub struct WinitPlugin;
+pub struct VulkanoWinitPlugin;
 
-impl Plugin for WinitPlugin {
+impl Plugin for VulkanoWinitPlugin {
     fn build(&self, app: &mut App) {
         let mut event_loop_builder = EventLoopBuilder::<()>::with_user_event();
 
@@ -81,32 +86,58 @@ impl Plugin for WinitPlugin {
         let event_loop = event_loop_builder.build();
         app.insert_non_send_resource(event_loop);
 
-        app.init_non_send_resource::<WinitWindows>()
-            .init_resource::<WinitSettings>()
+        // Retrieve config, or use default.
+        let config = if app
+            .world
+            .get_non_send_resource::<BevyVulkanoSettings>()
+            .is_none()
+        {
+            BevyVulkanoSettings::default()
+        } else {
+            app.world
+                .remove_non_send_resource::<BevyVulkanoSettings>()
+                .unwrap()
+        };
+
+        // Create vulkano context using the vulkano config from settings
+        let BevyVulkanoSettings {
+            vulkano_config, ..
+        } = config;
+        let vulkano_context = VulkanoContext::new(vulkano_config);
+
+        // Place config back as resource..
+        let new_config = BevyVulkanoSettings {
+            vulkano_config: VulkanoConfig::default(),
+            ..config
+        };
+
+        app.init_non_send_resource::<BevyVulkanoWindows>()
+            .insert_non_send_resource(vulkano_context)
+            .insert_non_send_resource(new_config)
             .set_runner(winit_runner)
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window
-            .add_systems(
-                Last,
-                (
-                    changed_window.ambiguous_with(exit_on_all_closed),
-                    // Update the state of the window before attempting to despawn to ensure consistent event ordering
-                    despawn_window.after(changed_window),
-                ),
-            );
+            .add_systems((
+                changed_window
+                    .ambiguous_with(exit_on_all_closed)
+                    .in_base_set(Last),
+                // Update the state of the window before attempting to despawn to ensure consistent event ordering
+                despawn_window.after(changed_window).in_base_set(Last),
+            ));
 
-        app.add_plugin(AccessibilityPlugin);
+        #[cfg(feature = "gui")]
+        {
+            app.add_systems(begin_egui_frame_system.in_base_set(bevy::prelude::CoreSet::PreUpdate));
+        }
 
-        #[cfg(not(target_arch = "wasm32"))]
         let mut create_window_system_state: SystemState<(
             Commands,
             NonSendMut<EventLoop<()>>,
             Query<(Entity, &mut Window)>,
             EventWriter<WindowCreated>,
-            NonSendMut<WinitWindows>,
-            NonSendMut<AccessKitAdapters>,
-            ResMut<WinitActionHandlers>,
-            ResMut<AccessibilityRequested>,
+            NonSendMut<BevyVulkanoWindows>,
+            NonSend<BevyVulkanoContext>,
+            NonSend<BevyVulkanoSettings>,
         )> = SystemState::from_world(&mut app.world);
 
         // And for ios and macos, we should not create window early, all ui related code should be executed inside
@@ -118,10 +149,9 @@ impl Plugin for WinitPlugin {
                 event_loop,
                 mut new_windows,
                 event_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
+                vulkano_windows,
+                context,
+                settings,
             ) = create_window_system_state.get_mut(&mut app.world);
 
             // Here we need to create a winit-window and give it a WindowHandle which the renderer can use.
@@ -132,10 +162,9 @@ impl Plugin for WinitPlugin {
                 &event_loop,
                 new_windows.iter_mut(),
                 event_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
+                vulkano_windows,
+                context,
+                settings,
             );
         }
 
@@ -150,9 +179,6 @@ where
     event_loop.run(event_handler)
 }
 
-// TODO: It may be worth moving this cfg into a procedural macro so that it can be referenced by
-// a single name instead of being copied around.
-// https://gist.github.com/jakerr/231dee4a138f7a5f25148ea8f39b382e seems to work.
 #[cfg(any(
     target_os = "windows",
     target_os = "macos",
@@ -213,17 +239,6 @@ struct CursorEvents<'w> {
     cursor_left: EventWriter<'w, CursorLeft>,
 }
 
-// #[cfg(any(
-//     target_os = "linux",
-//     target_os = "dragonfly",
-//     target_os = "freebsd",
-//     target_os = "netbsd",
-//     target_os = "openbsd"
-// ))]
-// pub fn winit_runner_any_thread(app: App) {
-//     winit_runner_with(app, EventLoop::new_any_thread());
-// }
-
 /// Stores state that must persist between frames.
 struct WinitPersistentState {
     /// Tracks whether or not the application is active or suspended.
@@ -249,11 +264,7 @@ impl Default for WinitPersistentState {
     }
 }
 
-/// The default [`App::runner`] for the [`WinitPlugin`] plugin.
-///
-/// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the `EventLoop`.
 pub fn winit_runner(mut app: App) {
-    // We remove this so that we have ownership over it.
     let mut event_loop = app
         .world
         .remove_non_send_resource::<EventLoop<()>>()
@@ -265,34 +276,23 @@ pub fn winit_runner(mut app: App) {
     app.world
         .insert_non_send_resource(event_loop.create_proxy());
 
-    let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
+    let return_from_run = app
+        .world
+        .non_send_resource::<BevyVulkanoSettings>()
+        .return_from_run;
 
     trace!("Entering winit event loop");
 
-    let mut focused_window_state: SystemState<(Res<WinitSettings>, Query<&Window>)> =
+    let mut focused_window_state: SystemState<(NonSend<BevyVulkanoSettings>, Query<&Window>)> =
         SystemState::from_world(&mut app.world);
 
-    #[cfg(not(target_arch = "wasm32"))]
     let mut create_window_system_state: SystemState<(
         Commands,
         Query<(Entity, &mut Window), Added<Window>>,
         EventWriter<WindowCreated>,
-        NonSendMut<WinitWindows>,
-        NonSendMut<AccessKitAdapters>,
-        ResMut<WinitActionHandlers>,
-        ResMut<AccessibilityRequested>,
-    )> = SystemState::from_world(&mut app.world);
-
-    #[cfg(target_arch = "wasm32")]
-    let mut create_window_system_state: SystemState<(
-        Commands,
-        Query<(Entity, &mut Window), Added<Window>>,
-        EventWriter<WindowCreated>,
-        NonSendMut<WinitWindows>,
-        NonSendMut<AccessKitAdapters>,
-        ResMut<WinitActionHandlers>,
-        ResMut<AccessibilityRequested>,
-        ResMut<CanvasParentResizeEventChannel>,
+        NonSendMut<BevyVulkanoWindows>,
+        NonSend<BevyVulkanoContext>,
+        NonSend<BevyVulkanoSettings>,
     )> = SystemState::from_world(&mut app.world);
 
     let event_handler = move |event: Event<()>,
@@ -310,7 +310,7 @@ pub fn winit_runner(mut app: App) {
 
         match event {
             event::Event::NewEvents(start) => {
-                let (winit_config, window_focused_query) = focused_window_state.get(&app.world);
+                let (config, window_focused_query) = focused_window_state.get(&app.world);
 
                 let app_focused = window_focused_query.iter().any(|window| window.focused);
 
@@ -320,7 +320,7 @@ pub fn winit_runner(mut app: App) {
                 // the frame.
                 let auto_timeout_reached = matches!(start, StartCause::ResumeTimeReached { .. });
                 let now = Instant::now();
-                let manual_timeout_reached = match winit_config.update_mode(app_focused) {
+                let manual_timeout_reached = match config.update_mode(app_focused) {
                     UpdateMode::Continuous => false,
                     UpdateMode::Reactive {
                         max_wait,
@@ -340,7 +340,7 @@ pub fn winit_runner(mut app: App) {
             } => {
                 // Fetch and prepare details from the world
                 let mut system_state: SystemState<(
-                    NonSend<WinitWindows>,
+                    NonSend<BevyVulkanoWindows>,
                     Query<(&mut Window, &mut CachedWindow)>,
                     WindowEvents,
                     InputEvents,
@@ -348,7 +348,7 @@ pub fn winit_runner(mut app: App) {
                     EventWriter<FileDragAndDrop>,
                 )> = SystemState::new(&mut app.world);
                 let (
-                    winit_windows,
+                    vulkano_windows,
                     mut window_query,
                     mut window_events,
                     mut input_events,
@@ -358,7 +358,7 @@ pub fn winit_runner(mut app: App) {
 
                 // Entity of this window
                 let window_entity =
-                    if let Some(entity) = winit_windows.get_window_entity(winit_window_id) {
+                    if let Some(entity) = vulkano_windows.get_window_entity(winit_window_id) {
                         entity
                     } else {
                         warn!(
@@ -378,6 +378,19 @@ pub fn winit_runner(mut app: App) {
                         );
                         return;
                     };
+
+                // Skip event if egui wants it
+                #[cfg(feature = "gui")]
+                {
+                    if let Some(vulkano_window) =
+                        vulkano_windows.get_vulkano_window_mut(window_entity)
+                    {
+                        // Update egui with the window event. If false, we should skip the event in bevy
+                        if vulkano_window.gui.update(window_event) {
+                            return;
+                        }
+                    }
+                }
 
                 winit_state.low_power_event = true;
 
@@ -549,7 +562,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
-                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCanceled {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCancelled {
                             window: window_entity,
                         });
                     }
@@ -690,27 +703,13 @@ pub fn winit_runner(mut app: App) {
         }
 
         if winit_state.active {
-            #[cfg(not(target_arch = "wasm32"))]
             let (
                 commands,
                 mut new_windows,
                 created_window_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-            ) = create_window_system_state.get_mut(&mut app.world);
-
-            #[cfg(target_arch = "wasm32")]
-            let (
-                commands,
-                mut new_windows,
-                created_window_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-                canvas_parent_resize_channel,
+                vulkano_windows,
+                context,
+                settings,
             ) = create_window_system_state.get_mut(&mut app.world);
 
             // Responsible for creating new windows
@@ -719,12 +718,9 @@ pub fn winit_runner(mut app: App) {
                 event_loop,
                 new_windows.iter_mut(),
                 created_window_writer,
-                winit_windows,
-                adapters,
-                handlers,
-                accessibility_requested,
-                #[cfg(target_arch = "wasm32")]
-                canvas_parent_resize_channel,
+                vulkano_windows,
+                context,
+                settings,
             );
 
             create_window_system_state.apply(&mut app.world);
@@ -736,5 +732,12 @@ pub fn winit_runner(mut app: App) {
         run_return(&mut event_loop, event_handler);
     } else {
         run(event_loop, event_handler);
+    }
+}
+
+#[cfg(feature = "gui")]
+pub fn begin_egui_frame_system(mut vulkano_windows: NonSendMut<BevyVulkanoWindows>) {
+    for (_, w) in vulkano_windows.windows.iter_mut() {
+        w.gui.begin_frame();
     }
 }

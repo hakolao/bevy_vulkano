@@ -1,8 +1,8 @@
 use bevy::{
     log::{error, info, warn},
     prelude::{
-        Changed, Commands, Entity, EventWriter, Mut, NonSendMut, Query, RemovedComponents, Res,
-        Window,
+        Changed, Commands, Component, Entity, EventWriter, Mut, NonSend, NonSendMut, Query,
+        RemovedComponents, Resource, Window,
     },
     utils::HashMap,
     window::{RawHandleWrapper, WindowClosed, WindowCreated},
@@ -15,7 +15,7 @@ use winit::{
 
 use crate::{
     config::BevyVulkanoSettings, converters, converters::convert_window_level, get_best_videomode,
-    get_fitting_videomode, BevyVulkanoContext, BevyVulkanoWindows,
+    get_fitting_videomode, vulkano_windows::attempt_grab, BevyVulkanoContext, BevyVulkanoWindows,
 };
 
 /// System responsible for creating new windows whenever a `Window` component is added
@@ -29,11 +29,11 @@ pub(crate) fn create_window<'a>(
     created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,
     mut vulkano_windows: NonSendMut<BevyVulkanoWindows>,
-    context: Res<BevyVulkanoContext>,
-    settings: Res<BevyVulkanoSettings>,
+    context: NonSend<BevyVulkanoContext>,
+    settings: NonSend<BevyVulkanoSettings>,
 ) {
     for (entity, mut window) in created_windows {
-        if vulkano_windows.get_window(entity).is_some() {
+        if vulkano_windows.get_vulkano_window(entity).is_some() {
             continue;
         }
 
@@ -112,25 +112,25 @@ pub(crate) fn changed_window(
 
             if window.mode != cache.window.mode {
                 let new_mode = match window.mode {
-                    bevy_window::WindowMode::BorderlessFullscreen => {
+                    bevy::window::WindowMode::BorderlessFullscreen => {
                         Some(winit::window::Fullscreen::Borderless(None))
                     }
-                    bevy_window::WindowMode::Fullscreen => {
+                    bevy::window::WindowMode::Fullscreen => {
                         Some(winit::window::Fullscreen::Exclusive(get_best_videomode(
                             &vulkano_window.window().current_monitor().unwrap(),
                         )))
                     }
-                    bevy_window::WindowMode::SizedFullscreen => {
+                    bevy::window::WindowMode::SizedFullscreen => {
                         Some(winit::window::Fullscreen::Exclusive(get_fitting_videomode(
                             &vulkano_window.window().current_monitor().unwrap(),
                             window.width() as u32,
                             window.height() as u32,
                         )))
                     }
-                    bevy_window::WindowMode::Windowed => None,
+                    bevy::window::WindowMode::Windowed => None,
                 };
 
-                if vulkano_window.fullscreen() != new_mode {
+                if vulkano_window.window().fullscreen() != new_mode {
                     vulkano_window.window().set_fullscreen(new_mode);
                 }
             }
@@ -165,10 +165,7 @@ pub(crate) fn changed_window(
             }
 
             if window.cursor.grab_mode != cache.window.cursor.grab_mode {
-                crate::winit_windows::attempt_grab(
-                    vulkano_window.window(),
-                    window.cursor.grab_mode,
-                );
+                attempt_grab(vulkano_window.window(), window.cursor.grab_mode);
             }
 
             if window.cursor.visible != cache.window.cursor.visible {
@@ -213,7 +210,9 @@ pub(crate) fn changed_window(
                     height: constraints.max_height,
                 };
 
-                vulkano_window.set_min_inner_size(Some(min_inner_size));
+                vulkano_window
+                    .window()
+                    .set_min_inner_size(Some(min_inner_size));
                 if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
                     vulkano_window
                         .window()

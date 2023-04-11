@@ -1,9 +1,11 @@
-use std::time::Duration;
+use std::{
+    fmt::{Debug, Formatter},
+    time::Duration,
+};
 
 use vulkano_util::context::VulkanoConfig;
 
 /// A resource for configuring usage of the library plugon.
-#[derive(Debug, Resource)]
 pub struct BevyVulkanoSettings {
     /// Configures `winit` to return control to the caller after exiting the
     /// event loop, enabling [`App::run()`](bevy_app::App::run()) to return.
@@ -39,6 +41,7 @@ pub struct BevyVulkanoSettings {
     #[cfg(feature = "gui")]
     pub is_gui_overlay: bool,
 }
+
 impl BevyVulkanoSettings {
     /// Configure winit with common settings for a game.
     pub fn game() -> Self {
@@ -66,6 +69,7 @@ impl BevyVulkanoSettings {
         }
     }
 }
+
 impl Default for BevyVulkanoSettings {
     fn default() -> Self {
         BevyVulkanoSettings {
@@ -76,6 +80,16 @@ impl Default for BevyVulkanoSettings {
             #[cfg(feature = "gui")]
             is_gui_overlay: false,
         }
+    }
+}
+
+impl Debug for BevyVulkanoSettings {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BevyVulkanoSettings")
+            .field("return_from_run", &self.return_from_run)
+            .field("focused_mode", &self.focused_mode)
+            .field("unfocused_mode", &self.unfocused_mode)
+            .finish()
     }
 }
 

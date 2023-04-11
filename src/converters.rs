@@ -6,7 +6,7 @@ use bevy::{
         ButtonState,
     },
     math::Vec2,
-    window::CursorIcon,
+    window::{CursorIcon, WindowLevel},
 };
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
@@ -42,7 +42,7 @@ pub fn convert_touch_input(
             winit::event::TouchPhase::Started => TouchPhase::Started,
             winit::event::TouchPhase::Moved => TouchPhase::Moved,
             winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
+            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
         },
         position: Vec2::new(location.x as f32, location.y as f32),
         force: touch_input.force.map(|f| match f {

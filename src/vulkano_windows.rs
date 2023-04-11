@@ -1,22 +1,13 @@
 #![allow(clippy::field_reassign_with_default)]
 
 use bevy::{
-    a11y::accesskit::{NodeBuilder, NodeClassSet, Role},
     log::warn,
-    math::IVec2,
-    prelude::{Commands, Entity},
-    utils::{
-        hashbrown::hash_map::{Iter, IterMut},
-        HashMap,
-    },
-    window::{
-        MonitorSelection, PresentMode, RawHandleWrapper, Window, WindowMode, WindowPosition,
-        WindowResolution,
-    },
+    prelude::Entity,
+    utils::HashMap,
+    window::{PresentMode, Window, WindowMode, WindowPosition, WindowResolution},
 };
 #[cfg(feature = "gui")]
 use egui_winit_vulkano::{Gui, GuiConfig};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use vulkano_util::{
     context::VulkanoContext,
     renderer::VulkanoWindowRenderer,
@@ -26,13 +17,12 @@ use vulkano_util::{
     },
 };
 use winit::{
-    dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
-    window::WindowId,
+    dpi::{LogicalSize, PhysicalPosition},
+    monitor::MonitorHandle,
 };
 
-use crate::{config::BevyVulkanoSettings, converters::convert_window_level, VulkanoWinitConfig};
+use crate::{config::BevyVulkanoSettings, converters::convert_window_level};
 
-#[derive(Component)]
 pub struct VulkanoWindow {
     pub renderer: VulkanoWindowRenderer,
     #[cfg(feature = "gui")]
@@ -69,7 +59,7 @@ impl BevyVulkanoWindows {
     ) -> &VulkanoWindow {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        winit_window_builder = match window.mode() {
+        winit_window_builder = match window.mode {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
@@ -130,10 +120,10 @@ impl BevyVulkanoWindows {
                 winit_window_builder.with_min_inner_size(min_inner_size)
             };
 
-        let mut winit_window_builder = winit_window_builder.with_title(window.title.as_str());
-
-        let winit_window = winit_window_builder.build(event_loop).unwrap();
-        let name = window.title.clone();
+        let winit_window = winit_window_builder
+            .with_title(window.title.as_str())
+            .build(event_loop)
+            .unwrap();
 
         // Do not set the grab mode on window creation if it's none, this can fail on mobile
         if window.cursor.grab_mode != bevy::window::CursorGrabMode::None {
@@ -154,13 +144,14 @@ impl BevyVulkanoWindows {
         }
 
         let vulkano_window = {
+            let pos = winit_window
+                .inner_position()
+                .ok()
+                .map(|p| [p.x as f32, p.y as f32]);
             let window_renderer = VulkanoWindowRenderer::new(
                 vulkano_context,
                 winit_window,
-                &window_descriptor_to_vulkano_window_descriptor(
-                    window,
-                    position.map(|p| [p.x as f32, p.y as f32]),
-                ),
+                &window_descriptor_to_vulkano_window_descriptor(window, pos),
                 move |ci| {
                     ci.image_format = Some(vulkano::format::Format::B8G8R8A8_SRGB);
                 },
@@ -294,24 +285,24 @@ pub(crate) fn attempt_grab(
     grab_mode: bevy::window::CursorGrabMode,
 ) {
     let grab_result = match grab_mode {
-        bevy_window::CursorGrabMode::None => {
+        bevy::window::CursorGrabMode::None => {
             winit_window.set_cursor_grab(winit::window::CursorGrabMode::None)
         }
-        bevy_window::CursorGrabMode::Confined => winit_window
+        bevy::window::CursorGrabMode::Confined => winit_window
             .set_cursor_grab(winit::window::CursorGrabMode::Confined)
             .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Locked)),
-        bevy_window::CursorGrabMode::Locked => winit_window
+        bevy::window::CursorGrabMode::Locked => winit_window
             .set_cursor_grab(winit::window::CursorGrabMode::Locked)
             .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Confined)),
     };
 
     if let Err(err) = grab_result {
         let err_desc = match grab_mode {
-            bevy_window::CursorGrabMode::Confined | bevy_window::CursorGrabMode::Locked => "grab",
-            bevy_window::CursorGrabMode::None => "ungrab",
+            bevy::window::CursorGrabMode::Confined | bevy::window::CursorGrabMode::Locked => "grab",
+            bevy::window::CursorGrabMode::None => "ungrab",
         };
 
-        bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);
+        bevy::utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);
     }
 }
 
@@ -328,7 +319,7 @@ pub fn winit_window_position(
             None
         }
         WindowPosition::Centered(monitor_selection) => {
-            use bevy_window::MonitorSelection::*;
+            use bevy::window::MonitorSelection::*;
             let maybe_monitor = match monitor_selection {
                 Current => {
                     if current_monitor.is_none() {
