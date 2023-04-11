@@ -2,7 +2,7 @@
 
 use bevy::{
     math::IVec2,
-    prelude::Entity,
+    prelude::{Commands, Entity},
     utils::{
         hashbrown::hash_map::{Iter, IterMut},
         HashMap,
@@ -28,8 +28,6 @@ use winit::{
 };
 
 use crate::VulkanoWinitConfig;
-
-pub const PRIMARY_WINDOW_ID: WindowId = WindowId::from(0);
 
 fn window_descriptor_to_vulkano_window_descriptor(
     wd: &Window,
@@ -86,6 +84,7 @@ pub struct BevyVulkanoWindows {
 impl BevyVulkanoWindows {
     pub fn create_window(
         &mut self,
+        commands: &mut Commands,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_entity: Entity,
         window: &Window,
@@ -120,14 +119,13 @@ impl BevyVulkanoWindows {
             _ => {
                 let Window {
                     position,
-                    resolution: WindowResolution{
-                        physical_width: width,
-                        physical_height: height,
-                        scale_factor_override,
-                        ..
-                    },
+                    resolution,
                     ..
                 } = window;
+
+                let width = window.physical_width();
+                let height = window.physical_height();
+                let scale_factor_override = resolution.scale_factor_override();
 
                  match position {
                     bevy::window::WindowPosition::Automatic => { /* Window manager will handle position */ }
@@ -142,7 +140,7 @@ impl BevyVulkanoWindows {
                             let scale_factor = scale_factor_override.unwrap_or(1.0);
 
                             // Logical to physical window size
-                            let (width, height): (u32, u32) = LogicalSize::new(*width, *height)
+                            let (width, height): (u32, u32) = LogicalSize::new(width, height)
                                 .to_physical::<u32>(scale_factor)
                                 .into();
 
@@ -162,7 +160,7 @@ impl BevyVulkanoWindows {
                         if let Some(sf) = scale_factor_override {
                             winit_window_builder = winit_window_builder.with_position(
                                 LogicalPosition::new(position[0] as f64, position[1] as f64)
-                                    .to_physical::<f64>(*sf),
+                                    .to_physical::<f64>(sf),
                             );
                         } else {
                             winit_window_builder = winit_window_builder.with_position(
@@ -174,11 +172,11 @@ impl BevyVulkanoWindows {
 
                 if let Some(sf) = scale_factor_override {
                     winit_window_builder.with_inner_size(
-                        winit::dpi::LogicalSize::new(*width, *height).to_physical::<f64>(*sf),
+                        winit::dpi::LogicalSize::new(width, height).to_physical::<f64>(sf),
                     )
                 } else {
                     winit_window_builder
-                        .with_inner_size(winit::dpi::LogicalSize::new(*width, *height))
+                        .with_inner_size(winit::dpi::LogicalSize::new(width, height))
                 }
             }
             .with_resizable(window.resizable)
@@ -240,6 +238,14 @@ impl BevyVulkanoWindows {
             display_handle: winit_window.raw_display_handle(),
         };
 
+        // TODO Do we need bevy winit for CacheWindow?
+        commands
+            .entity(window_entity)
+            .insert(raw_window_handle_wrapper);
+        // .insert(CachedWindow {
+        //     window: window.clone(),
+        // });
+
         let window_renderer = VulkanoWindowRenderer::new(
             vulkano_context,
             winit_window,
@@ -269,13 +275,6 @@ impl BevyVulkanoWindows {
 
         #[cfg(not(feature = "gui"))]
         self.windows.insert(winit_id, window_renderer);
-
-        // Window::new(
-        //     window_id,
-        //     window_descriptor,
-        //     position,
-        //     Some(raw_window_handle_wrapper),
-        // )
 
         Window {
             position: bevy::window::WindowPosition::At(position.unwrap()),
