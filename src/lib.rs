@@ -30,9 +30,9 @@ use bevy::{
     prelude::*,
     utils::HashSet,
     window::{
-        CursorEntered, CursorLeft, CursorMoved, ExitCondition, FileDragAndDrop, ReceivedCharacter,
-        WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed, WindowCreated,
-        WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
+        CursorEntered, CursorLeft, CursorMoved, ExitCondition, FileDragAndDrop, PrimaryWindow,
+        ReceivedCharacter, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowClosed,
+        WindowCreated, WindowFocused, WindowMoved, WindowResized, WindowScaleFactorChanged,
     },
 };
 #[cfg(feature = "gui")]
@@ -197,8 +197,9 @@ fn update_on_resize_system(
 fn change_window(world: &mut World) {
     let mut state: SystemState<(
         NonSendMut<BevyVulkanoWindows>,
-        NonSendMut<PipelineSyncData>,
+        ResMut<PipelineSyncData>,
         Query<(Entity, &Window)>,
+        Query<Entity, With<PrimaryWindow>>,
         EventWriter<AppExit>,
         EventWriter<WindowClosed>,
     )> = SystemState::from_world(world);
@@ -207,6 +208,7 @@ fn change_window(world: &mut World) {
         mut vulkano_winit_windows,
         mut pipeline_sync_data,
         mut windows,
+        primary_window_entity,
         mut app_exit_events,
         mut window_closed_events,
     ) = state.get_mut(world);
@@ -424,8 +426,12 @@ fn change_window(world: &mut World) {
 
     if !removed_windows.is_empty() {
         for window in removed_windows {
-            let (app_close, window_close) =
-                close_window(window, &mut vulkano_winit_windows, &mut pipeline_sync_data);
+            let (app_close, window_close) = close_window(
+                window,
+                &mut vulkano_winit_windows,
+                primary_window_entity.get_single(),
+                &mut pipeline_sync_data,
+            );
 
             if app_close {
                 app_exit_events.send(AppExit);
@@ -902,25 +908,30 @@ fn handle_create_window_events(world: &mut World, event_loop: &EventLoopWindowTa
         vulkano_context,
         vulkano_config,
         mut vulkano_winit_windows,
-        new_windows,
+        mut new_windows,
         mut event_writer,
     ) = handle_create_window_events_state.get_mut(world);
 
-    for (entity, create_window) in new_windows.iter() {
-        let window = vulkano_winit_windows.create_window(
-            &mut commands,
-            event_loop,
-            entity,
-            create_window,
-            &vulkano_context.context,
-            &vulkano_config,
-        );
+    //TODO: Query<(Entity, &mut Window), Added<Window>> is suppose to react to only created windows, but it keeps
+    // triggering each frame causing a window to be created constantly
 
-        commands.spawn(window);
+    for (entity, create_window) in new_windows.iter_mut() {
+        println!("Creating window: {:?}", create_window);
 
-        event_writer.send(WindowCreated {
-            window: entity,
-        });
+        // let window = vulkano_winit_windows.create_window(
+        //     &mut commands,
+        //     event_loop,
+        //     entity,
+        //     create_window,
+        //     &vulkano_context.context,
+        //     &vulkano_config,
+        // );
+
+        // commands.spawn(window);
+
+        // event_writer.send(WindowCreated {
+        //     window: entity,
+        // });
     }
 
     handle_create_window_events_state.apply(world);
@@ -967,14 +978,20 @@ fn handle_initial_window_events(world: &mut World, event_loop: &EventLoop<()>) {
 
 pub fn exit_on_window_close_system(
     mut app_exit_events: EventWriter<AppExit>,
-    mut window_close_events: EventWriter<WindowClosed>,
-    mut window_close_requested_events: EventReader<WindowCloseRequested>,
     mut windows: NonSendMut<BevyVulkanoWindows>,
     mut pipeline_data: ResMut<PipelineSyncData>,
+    mut window_close_events: EventWriter<WindowClosed>,
+    primary_window_entity: Query<Entity, With<PrimaryWindow>>,
+    mut window_close_requested_events: EventReader<WindowCloseRequested>,
 ) {
     for event in window_close_requested_events.iter() {
-        let (app_close, window_close) =
-            close_window(event.window, &mut windows, &mut pipeline_data);
+        let (app_close, window_close) = close_window(
+            event.window,
+            &mut windows,
+            primary_window_entity.get_single(),
+            &mut pipeline_data,
+        );
+
         if app_close {
             app_exit_events.send(AppExit);
         } else if window_close {
@@ -988,9 +1005,20 @@ pub fn exit_on_window_close_system(
 fn close_window(
     window_entity: bevy::prelude::Entity,
     windows: &mut BevyVulkanoWindows,
+    primary_window_entity: Result<bevy::prelude::Entity, bevy::ecs::query::QuerySingleError>,
     pipeline_data: &mut PipelineSyncData,
     // App close?, Window was closed?
 ) -> (bool, bool) {
+    // Close app on primary window exit
+    if let Ok(primary_window) = primary_window_entity {
+        if window_entity == primary_window {
+            return (true, false);
+        }
+    } else {
+        // primary window was closed
+        return (true, false);
+    }
+
     let winit_id = if let Some(winit_window) = windows.get_winit_window(window_entity) {
         winit_window.id()
     } else {
@@ -998,16 +1026,9 @@ fn close_window(
         return (false, false);
     };
 
-    // Close app on primary window exit
-    if winit_id == WindowId::from(0) {
-        (true, false)
-    }
-    // But don't close app on secondary window exit. Instead cleanup...
-    else {
-        pipeline_data.remove(window_entity);
-        windows.windows.remove(&winit_id);
-        (false, true)
-    }
+    pipeline_data.remove(window_entity);
+    windows.windows.remove(&winit_id);
+    (false, true)
 }
 
 #[cfg(feature = "gui")]

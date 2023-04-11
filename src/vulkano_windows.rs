@@ -301,15 +301,15 @@ impl BevyVulkanoWindows {
             .and_then(|id| self.windows.get(id))
     }
 
-    #[cfg(feature = "gui")]
-    pub fn get_primary_window_renderer_mut(&mut self) -> Option<&mut (VulkanoWindowRenderer, Gui)> {
-        self.get_window_renderer_mut(WindowId::primary())
-    }
+    // #[cfg(feature = "gui")]
+    // pub fn get_primary_window_renderer_mut(&mut self) -> Option<&mut (VulkanoWindowRenderer, Gui)> {
+    //     self.get_window_renderer_mut(WindowId::primary())
+    // }
 
-    #[cfg(feature = "gui")]
-    pub fn get_primary_window_renderer(&self) -> Option<&(VulkanoWindowRenderer, Gui)> {
-        self.get_window_renderer(WindowId::primary())
-    }
+    // #[cfg(feature = "gui")]
+    // pub fn get_primary_window_renderer(&self) -> Option<&(VulkanoWindowRenderer, Gui)> {
+    //     self.get_window_renderer(WindowId::primary())
+    // }
 
     #[cfg(feature = "gui")]
     pub fn get_window_renderer_mut(
