@@ -213,6 +213,8 @@ fn change_window(world: &mut World) {
 
     let mut removed_windows = vec![];
 
+    // TODO: This is a big one. Bevy doesnt send commands anymore. They are directly linked to winit i beleive
+
     for (window, bevy_window) in windows.iter_mut() {
         // for command in bevy_window.drain_commands() {
         //     match command {
