@@ -9,9 +9,8 @@
 
 use std::sync::Arc;
 
-use bytemuck::{Pod, Zeroable};
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer, TypedBufferAccess},
+    buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder,
         CommandBufferInheritanceInfo, CommandBufferUsage, SecondaryAutoCommandBuffer,
@@ -21,11 +20,11 @@ use vulkano::{
     },
     device::{DeviceOwned, Queue},
     image::ImageViewAbstract,
-    memory::allocator::StandardMemoryAllocator,
+    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
     pipeline::{
         graphics::{
             input_assembly::InputAssemblyState,
-            vertex_input::BuffersDefinition,
+            vertex_input::Vertex,
             viewport::{Viewport, ViewportState},
         },
         GraphicsPipeline, Pipeline, PipelineBindPoint,
@@ -36,29 +35,30 @@ use vulkano::{
 
 /// Vertex for textured quads
 #[repr(C)]
-#[derive(Default, Debug, Copy, Clone, Zeroable, Pod)]
-pub struct TexturedVertex {
+#[derive(BufferContents, Vertex)]
+pub struct PosVertex {
+    #[format(R32G32_SFLOAT)]
     pub position: [f32; 2],
+    #[format(R32G32_SFLOAT)]
     pub tex_coords: [f32; 2],
 }
-vulkano::impl_vertex!(TexturedVertex, position, tex_coords);
 
-pub fn textured_quad(width: f32, height: f32) -> (Vec<TexturedVertex>, Vec<u32>) {
+pub fn pos_quad(width: f32, height: f32) -> (Vec<PosVertex>, Vec<u32>) {
     (
         vec![
-            TexturedVertex {
+            PosVertex {
                 position: [-(width / 2.0), -(height / 2.0)],
                 tex_coords: [0.0, 1.0],
             },
-            TexturedVertex {
+            PosVertex {
                 position: [-(width / 2.0), height / 2.0],
                 tex_coords: [0.0, 0.0],
             },
-            TexturedVertex {
+            PosVertex {
                 position: [width / 2.0, height / 2.0],
                 tex_coords: [1.0, 0.0],
             },
-            TexturedVertex {
+            PosVertex {
                 position: [width / 2.0, -(height / 2.0)],
                 tex_coords: [1.0, 1.0],
             },
@@ -74,8 +74,8 @@ pub struct PixelsDrawPipeline {
     descriptor_set_allocator: StandardDescriptorSetAllocator,
     pipeline: Arc<GraphicsPipeline>,
     subpass: Subpass,
-    vertices: Arc<CpuAccessibleBuffer<[TexturedVertex]>>,
-    indices: Arc<CpuAccessibleBuffer<[u32]>>,
+    vertices: Subbuffer<[PosVertex]>,
+    indices: Subbuffer<[u32]>,
 }
 
 impl PixelsDrawPipeline {
@@ -84,24 +84,31 @@ impl PixelsDrawPipeline {
         gfx_queue: Arc<Queue>,
         subpass: Subpass,
     ) -> PixelsDrawPipeline {
-        let (vertices, indices) = textured_quad(2.0, 2.0);
-        let vertex_buffer = CpuAccessibleBuffer::<[TexturedVertex]>::from_iter(
+        let (vertices, indices) = pos_quad(2.0, 2.0);
+        let vertex_buffer = Buffer::from_iter(
             &allocator,
-            BufferUsage {
-                vertex_buffer: true,
-                ..BufferUsage::empty()
+            BufferCreateInfo {
+                usage: BufferUsage::VERTEX_BUFFER,
+                ..Default::default()
             },
-            false,
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
             vertices.into_iter(),
         )
         .unwrap();
-        let index_buffer = CpuAccessibleBuffer::<[u32]>::from_iter(
+
+        let index_buffer = Buffer::from_iter(
             &allocator,
-            BufferUsage {
-                index_buffer: true,
-                ..BufferUsage::empty()
+            BufferCreateInfo {
+                usage: BufferUsage::INDEX_BUFFER,
+                ..Default::default()
             },
-            false,
+            AllocationCreateInfo {
+                usage: MemoryUsage::Upload,
+                ..Default::default()
+            },
             indices.into_iter(),
         )
         .unwrap();
@@ -110,7 +117,7 @@ impl PixelsDrawPipeline {
             let vs = vs::load(gfx_queue.device().clone()).expect("failed to create shader module");
             let fs = fs::load(gfx_queue.device().clone()).expect("failed to create shader module");
             GraphicsPipeline::start()
-                .vertex_input_state(BuffersDefinition::new().vertex::<TexturedVertex>())
+                .vertex_input_state(PosVertex::per_vertex())
                 .vertex_shader(vs.entry_point("main").unwrap(), ())
                 .input_assembly_state(InputAssemblyState::new())
                 .fragment_shader(fs.entry_point("main").unwrap(), ())

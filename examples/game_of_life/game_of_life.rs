@@ -12,7 +12,7 @@ use std::sync::Arc;
 use bevy::{math::IVec2, prelude::Resource};
 use rand::Rng;
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer},
+    buffer::{Buffer, BufferCreateInfo, BufferUsage, Subbuffer},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
         PrimaryAutoCommandBuffer,
@@ -23,7 +23,7 @@ use vulkano::{
     device::{DeviceOwned, Queue},
     format::Format,
     image::{ImageAccess, ImageUsage, StorageImage},
-    memory::allocator::StandardMemoryAllocator,
+    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
     pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
     sync::GpuFuture,
 };
@@ -40,22 +40,22 @@ pub struct GameOfLifeComputePipeline {
     command_buffer_allocator: StandardCommandBufferAllocator,
     descriptor_set_allocator: StandardDescriptorSetAllocator,
     compute_life_pipeline: Arc<ComputePipeline>,
-    life_in: Arc<CpuAccessibleBuffer<[u32]>>,
-    life_out: Arc<CpuAccessibleBuffer<[u32]>>,
+    life_in: Subbuffer<[u32]>,
+    life_out: Subbuffer<[u32]>,
     image: DeviceImageView,
 }
 
-fn rand_grid(
-    allocator: &Arc<StandardMemoryAllocator>,
-    size: [u32; 2],
-) -> Arc<CpuAccessibleBuffer<[u32]>> {
-    CpuAccessibleBuffer::from_iter(
+fn rand_grid(allocator: &Arc<StandardMemoryAllocator>, size: [u32; 2]) -> Subbuffer<[u32]> {
+    Buffer::from_iter(
         allocator,
-        BufferUsage {
-            storage_buffer: true,
-            ..BufferUsage::empty()
+        BufferCreateInfo {
+            usage: BufferUsage::STORAGE_BUFFER,
+            ..Default::default()
         },
-        false,
+        AllocationCreateInfo {
+            usage: MemoryUsage::Upload,
+            ..Default::default()
+        },
         (0..(size[0] * size[1]))
             .map(|_| rand::thread_rng().gen_range(0u32..=1))
             .collect::<Vec<u32>>(),
@@ -89,12 +89,7 @@ impl GameOfLifeComputePipeline {
             compute_queue.clone(),
             size,
             Format::R8G8B8A8_UNORM,
-            ImageUsage {
-                sampled: true,
-                storage: true,
-                transfer_dst: true,
-                ..ImageUsage::empty()
-            },
+            ImageUsage::SAMPLED | ImageUsage::STORAGE | ImageUsage::TRANSFER_DST,
         )
         .unwrap();
         GameOfLifeComputePipeline {
@@ -182,7 +177,7 @@ impl GameOfLifeComputePipeline {
             ])
             .unwrap();
 
-        let push_constants = compute_life_cs::ty::PushConstants {
+        let push_constants = compute_life_cs::PushConstants {
             life_color,
             dead_color,
             step,
@@ -273,10 +268,5 @@ void main() {
         compute_color();
     }
 }",
-        types_meta: {
-            use bytemuck::{Pod, Zeroable};
-
-            #[derive(Clone, Copy, Zeroable, Pod)]
-        },
     }
 }

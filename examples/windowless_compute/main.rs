@@ -1,13 +1,14 @@
 use bevy::{app::AppExit, prelude::*};
-use bevy_vulkano::{BevyVulkanoContext, VulkanoWinitConfig, VulkanoWinitPlugin};
+use bevy_vulkano::{BevyVulkanoContext, VulkanoWinitPlugin};
 use vulkano::{
-    buffer::{BufferUsage, CpuAccessibleBuffer},
+    buffer::{Buffer, BufferCreateInfo, BufferUsage},
     command_buffer::{
         allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder, CommandBufferUsage,
     },
     descriptor_set::{
         allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
     },
+    memory::allocator::{AllocationCreateInfo, MemoryUsage},
     pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
     sync,
     sync::GpuFuture,
@@ -17,8 +18,8 @@ use vulkano::{
 
 fn main() {
     App::new()
-        .insert_non_send_resource(VulkanoWinitConfig {
-            add_primary_window: false,
+        .add_plugin(WindowPlugin {
+            primary_window: None,
             ..default()
         })
         .add_plugin(VulkanoWinitPlugin::default())
@@ -62,20 +63,21 @@ fn run_compute_shader_once_then_exit(
         )
         .unwrap()
     };
+
     // Create buffer
-    let data_buffer = {
-        let data_iter = (0..65536u32).collect::<Vec<u32>>();
-        CpuAccessibleBuffer::from_iter(
-            context.context.memory_allocator(),
-            BufferUsage {
-                storage_buffer: true,
-                ..BufferUsage::empty()
-            },
-            false,
-            data_iter,
-        )
-        .unwrap()
-    };
+    let data_buffer = Buffer::from_iter(
+        context.context.memory_allocator(),
+        BufferCreateInfo {
+            usage: BufferUsage::STORAGE_BUFFER,
+            ..Default::default()
+        },
+        AllocationCreateInfo {
+            usage: MemoryUsage::Upload,
+            ..Default::default()
+        },
+        (0..65536u32).collect::<Vec<u32>>(),
+    )
+    .unwrap();
 
     let command_buffer_allocator =
         StandardCommandBufferAllocator::new(context.context.device().clone(), Default::default());

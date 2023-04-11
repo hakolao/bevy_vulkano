@@ -1,40 +1,64 @@
 [package]
-name = "bevy_vulkano"
-version = "0.11.0"
-edition = "2021"
 authors = ["Okko Hakola <okkohakola@gmail.com>"]
+categories = ["gui", "game-development"]
 description = "Vulkano Backend for Bevy"
+edition = "2021"
 homepage = "https://github.com/hakolao/bevy_vulkano"
+keywords = ["gui", "imgui", "vulkano", "gamedev", "bevy"]
 license = "Apache-2.0"
+name = "bevy_vulkano"
 readme = "README.md"
 repository = "https://github.com/hakolao/bevy_vulkano"
-categories = ["gui", "game-development"]
-keywords = ["gui", "imgui", "vulkano", "gamedev", "bevy"]
+version = "0.11.0"
 
 [features]
 default = []
-example_has_gui = ["gui", "links", "clipboard"]
+gui = ["egui_winit_vulkano"]
 links = ["gui", "egui_winit_vulkano/links"]
 clipboard = ["gui", "egui_winit_vulkano/clipboard"]
-gui = ["egui_winit_vulkano"]
 
 [dependencies]
-vulkano = "0.32"
-vulkano-util = "0.32"
-vulkano-shaders = "0.32"
-egui_winit_vulkano = { version = "0.23.0", optional = true, default_features = false, features = [] }
-winit = "0.27"
-image = "0.24.5"
 approx = "0.5.1"
+egui_winit_vulkano = { version = "0.24.0", optional = true, default_features = false, features = [] }
+image = "0.24.5"
 raw-window-handle = "0.5"
+vulkano = "0.33"
+vulkano-shaders = "0.33"
+vulkano-util = "0.33"
+winit = "0.28"
 
 [dependencies.bevy]
-version = "0.9.1"
 default-features = false
 features = []
+version = "0.10"
 
 [dev-dependencies]
 anyhow = "1.0.66"
 rand = "0.8.5"
-bytemuck = "1.12.3"
 
+[[example]]
+name = "game_of_life"
+path = "examples/game_of_life/main.rs"
+required-features = []
+
+[package.metadata.example.game_of_life]
+name = "Game of life"
+description = "Example running a more comples vulkano pipeline with compute shaders"
+
+[[example]]
+name = "multi_window_gui"
+path = "examples/multi_window_gui/main.rs"
+required-features = ["gui", "links", "clipboard"]
+
+[package.metadata.example.multi_window_gui]
+name = "Multi Window Gui"
+description = "Example running multiple windows with egui gui"
+
+[[example]]
+name = "windowless_compute"
+path = "examples/windowless_compute/main.rs"
+required-features = []
+
+[package.metadata.example.windowless_compute]
+name = "Windowless compute shader"
+description = "Example running a windowless vulkano compute shader"
