@@ -7,10 +7,6 @@
     clippy::match_like_matches_macro
 )]
 
-/*
-Pretty much the same as bevy_winit, but organized to use vulkano renderer backend.
-This allows you to create your own pipelines for rendering.
- */
 mod config;
 mod converters;
 mod system;
@@ -251,6 +247,7 @@ struct WinitPersistentState {
     timeout_reached: bool,
     last_update: Instant,
 }
+
 impl Default for WinitPersistentState {
     fn default() -> Self {
         Self {

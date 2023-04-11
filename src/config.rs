@@ -5,7 +5,7 @@ use std::{
 
 use vulkano_util::context::VulkanoConfig;
 
-/// A resource for configuring usage of the library plugon.
+/// A resource for configuring usage winit and Vulkano
 pub struct BevyVulkanoSettings {
     /// Configures `winit` to return control to the caller after exiting the
     /// event loop, enabling [`App::run()`](bevy_app::App::run()) to return.
@@ -34,6 +34,7 @@ pub struct BevyVulkanoSettings {
     pub focused_mode: UpdateMode,
     /// Configures how the winit event loop updates while the window is *not* focused.
     pub unfocused_mode: UpdateMode,
+    /// Configuration of vulkano (device etc.)
     pub vulkano_config: VulkanoConfig,
     /// Whether the image gets cleared each frame by gui integration. This is only relevant if
     /// `gui` feature is set.

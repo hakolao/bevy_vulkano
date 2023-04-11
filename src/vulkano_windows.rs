@@ -1,3 +1,5 @@
+// Mostly same as in `bevy_winit`, but modified to hold `VulkanoWindow` instead of just winit Window
+
 #![allow(clippy::field_reassign_with_default)]
 
 use bevy::{

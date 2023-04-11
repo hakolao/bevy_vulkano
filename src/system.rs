@@ -1,3 +1,4 @@
+// Same as in `bevy_winit`, but modified to allow inserting vulkano renderer that holds the window
 use bevy::{
     log::{error, info, warn},
     prelude::{
@@ -19,7 +20,7 @@ use crate::{
 };
 
 /// System responsible for creating new windows whenever a `Window` component is added
-/// to an entity.
+/// to an entity. In addition, A vulkano renderer for each window get created.
 ///
 /// This will default any necessary components if they are not already added.
 #[allow(clippy::too_many_arguments)]
