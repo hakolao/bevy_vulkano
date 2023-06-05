@@ -156,6 +156,7 @@ impl BevyVulkanoWindows {
                 &window_descriptor_to_vulkano_window_descriptor(window, pos),
                 move |ci| {
                     ci.image_format = Some(vulkano::format::Format::B8G8R8A8_SRGB);
+                    ci.min_image_count = ci.min_image_count.max(2);
                 },
             );
 
