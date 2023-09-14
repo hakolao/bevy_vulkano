@@ -95,7 +95,7 @@ impl PixelsDrawPipeline {
                 usage: MemoryUsage::Upload,
                 ..Default::default()
             },
-            vertices.into_iter(),
+            vertices,
         )
         .unwrap();
 
@@ -109,7 +109,7 @@ impl PixelsDrawPipeline {
                 usage: MemoryUsage::Upload,
                 ..Default::default()
             },
-            indices.into_iter(),
+            indices,
         )
         .unwrap();
 

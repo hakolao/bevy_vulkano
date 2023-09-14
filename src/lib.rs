@@ -13,7 +13,7 @@ mod system;
 mod vulkano_windows;
 
 use bevy::{
-    app::{App, AppExit, CoreSet::Last, Plugin},
+    app::{App, AppExit, Plugin},
     ecs::{
         event::{Events, ManualEventReader},
         system::{SystemParam, SystemState},
@@ -112,17 +112,18 @@ impl Plugin for VulkanoWinitPlugin {
             .set_runner(winit_runner)
             // exit_on_all_closed only uses the query to determine if the query is empty,
             // and so doesn't care about ordering relative to changed_window
-            .add_systems((
-                changed_window
-                    .ambiguous_with(exit_on_all_closed)
-                    .in_base_set(Last),
-                // Update the state of the window before attempting to despawn to ensure consistent event ordering
-                despawn_window.after(changed_window).in_base_set(Last),
-            ));
+            .add_systems(
+                Last,
+                (
+                    changed_window.ambiguous_with(exit_on_all_closed),
+                    // Update the state of the window before attempting to despawn to ensure consistent event ordering
+                    despawn_window.after(changed_window),
+                ),
+            );
 
         #[cfg(feature = "gui")]
         {
-            app.add_system(begin_egui_frame_system.in_base_set(bevy::prelude::CoreSet::PreUpdate));
+            app.add_systems(PreUpdate, begin_egui_frame_system);
         }
 
         let mut create_window_system_state: SystemState<(
@@ -415,7 +416,7 @@ pub fn winit_runner(mut app: App) {
                     } => {
                         input_events
                             .keyboard_input
-                            .send(converters::convert_keyboard_input(input));
+                            .send(converters::convert_keyboard_input(input, window_entity));
                     }
                     WindowEvent::CursorMoved {
                         position, ..
@@ -454,6 +455,7 @@ pub fn winit_runner(mut app: App) {
                         input_events.mouse_button_input.send(MouseButtonInput {
                             button: converters::convert_mouse_button(button),
                             state: converters::convert_element_state(state),
+                            window: window_entity,
                         });
                     }
                     WindowEvent::MouseWheel {
@@ -464,6 +466,7 @@ pub fn winit_runner(mut app: App) {
                                 unit: MouseScrollUnit::Line,
                                 x,
                                 y,
+                                window: window_entity,
                             });
                         }
                         event::MouseScrollDelta::PixelDelta(p) => {
@@ -471,6 +474,7 @@ pub fn winit_runner(mut app: App) {
                                 unit: MouseScrollUnit::Pixel,
                                 x: p.x as f32,
                                 y: p.y as f32,
+                                window: window_entity,
                             });
                         }
                     },
@@ -559,7 +563,7 @@ pub fn winit_runner(mut app: App) {
                         });
                     }
                     WindowEvent::HoveredFileCancelled => {
-                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCancelled {
+                        file_drag_and_drop_events.send(FileDragAndDrop::HoveredFileCanceled {
                             window: window_entity,
                         });
                     }

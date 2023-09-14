@@ -14,7 +14,7 @@ impl PluginGroup for PluginBundle {
         PluginGroupBuilder::start::<PluginBundle>()
             .add(bevy::input::InputPlugin)
             .add(bevy::window::WindowPlugin::default())
-            .add(VulkanoWinitPlugin::default())
+            .add(VulkanoWinitPlugin)
     }
 }
 
@@ -40,9 +40,9 @@ fn main() {
             }),
             ..default()
         }))
-        .add_system(close_on_esc)
-        .add_system(create_new_window_system)
-        .add_system(main_render_system_primary_window.in_base_set(CoreSet::PostUpdate))
+        .add_systems(Update, close_on_esc)
+        .add_systems(Update, create_new_window_system)
+        .add_systems(PostUpdate, main_render_system_primary_window)
         .run();
 }
 
