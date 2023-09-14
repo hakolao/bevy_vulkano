@@ -9,7 +9,7 @@ license = "Apache-2.0"
 name = "bevy_vulkano"
 readme = "README.md"
 repository = "https://github.com/hakolao/bevy_vulkano"
-version = "0.12.0"
+version = "0.13.0"
 
 [features]
 default = []

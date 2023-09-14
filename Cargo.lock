@@ -507,7 +507,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_vulkano"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "approx",
