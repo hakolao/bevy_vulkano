@@ -7,14 +7,19 @@ use bevy::{
         ButtonState,
     },
     math::Vec2,
+    prelude::Entity,
     window::{CursorIcon, WindowLevel},
 };
 
-pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
+pub fn convert_keyboard_input(
+    keyboard_input: &winit::event::KeyboardInput,
+    window: Entity,
+) -> KeyboardInput {
     KeyboardInput {
         scan_code: keyboard_input.scancode,
         state: convert_element_state(keyboard_input.state),
         key_code: keyboard_input.virtual_keycode.map(convert_virtual_key_code),
+        window,
     }
 }
 
@@ -43,7 +48,7 @@ pub fn convert_touch_input(
             winit::event::TouchPhase::Started => TouchPhase::Started,
             winit::event::TouchPhase::Moved => TouchPhase::Moved,
             winit::event::TouchPhase::Ended => TouchPhase::Ended,
-            winit::event::TouchPhase::Cancelled => TouchPhase::Cancelled,
+            winit::event::TouchPhase::Cancelled => TouchPhase::Canceled,
         },
         position: Vec2::new(location.x as f32, location.y as f32),
         force: touch_input.force.map(|f| match f {
@@ -175,11 +180,11 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::Grave => KeyCode::Grave,
         winit::event::VirtualKeyCode::Kana => KeyCode::Kana,
         winit::event::VirtualKeyCode::Kanji => KeyCode::Kanji,
-        winit::event::VirtualKeyCode::LAlt => KeyCode::LAlt,
-        winit::event::VirtualKeyCode::LBracket => KeyCode::LBracket,
-        winit::event::VirtualKeyCode::LControl => KeyCode::LControl,
-        winit::event::VirtualKeyCode::LShift => KeyCode::LShift,
-        winit::event::VirtualKeyCode::LWin => KeyCode::LWin,
+        winit::event::VirtualKeyCode::LAlt => KeyCode::AltLeft,
+        winit::event::VirtualKeyCode::LBracket => KeyCode::BracketLeft,
+        winit::event::VirtualKeyCode::LControl => KeyCode::ControlLeft,
+        winit::event::VirtualKeyCode::LShift => KeyCode::ShiftLeft,
+        winit::event::VirtualKeyCode::LWin => KeyCode::SuperLeft,
         winit::event::VirtualKeyCode::Mail => KeyCode::Mail,
         winit::event::VirtualKeyCode::MediaSelect => KeyCode::MediaSelect,
         winit::event::VirtualKeyCode::MediaStop => KeyCode::MediaStop,
@@ -199,11 +204,11 @@ pub fn convert_virtual_key_code(virtual_key_code: winit::event::VirtualKeyCode) 
         winit::event::VirtualKeyCode::PlayPause => KeyCode::PlayPause,
         winit::event::VirtualKeyCode::Power => KeyCode::Power,
         winit::event::VirtualKeyCode::PrevTrack => KeyCode::PrevTrack,
-        winit::event::VirtualKeyCode::RAlt => KeyCode::RAlt,
-        winit::event::VirtualKeyCode::RBracket => KeyCode::RBracket,
-        winit::event::VirtualKeyCode::RControl => KeyCode::RControl,
-        winit::event::VirtualKeyCode::RShift => KeyCode::RShift,
-        winit::event::VirtualKeyCode::RWin => KeyCode::RWin,
+        winit::event::VirtualKeyCode::RAlt => KeyCode::AltRight,
+        winit::event::VirtualKeyCode::RBracket => KeyCode::BracketRight,
+        winit::event::VirtualKeyCode::RControl => KeyCode::ControlRight,
+        winit::event::VirtualKeyCode::RShift => KeyCode::ShiftRight,
+        winit::event::VirtualKeyCode::RWin => KeyCode::SuperRight,
         winit::event::VirtualKeyCode::Semicolon => KeyCode::Semicolon,
         winit::event::VirtualKeyCode::Slash => KeyCode::Slash,
         winit::event::VirtualKeyCode::Sleep => KeyCode::Sleep,

@@ -7,7 +7,7 @@ mod place_over_frame;
 use std::time::Duration;
 
 use bevy::{
-    app::{CoreSet::PostUpdate, PluginGroupBuilder},
+    app::PluginGroupBuilder,
     prelude::*,
     time::common_conditions::on_timer,
     window::{close_on_esc, WindowMode},
@@ -25,11 +25,11 @@ impl PluginGroup for PluginBundle {
             // Minimum plugins for the demo
             .add(bevy::log::LogPlugin::default())
             .add(bevy::core::TaskPoolPlugin::default())
-            .add(bevy::core::TypeRegistrationPlugin::default())
-            .add(bevy::core::FrameCountPlugin::default())
-            .add(bevy::time::TimePlugin::default())
-            .add(bevy::diagnostic::DiagnosticsPlugin::default())
-            .add(bevy::input::InputPlugin::default())
+            .add(bevy::core::TypeRegistrationPlugin)
+            .add(bevy::core::FrameCountPlugin)
+            .add(bevy::time::TimePlugin)
+            .add(bevy::diagnostic::DiagnosticsPlugin)
+            .add(bevy::input::InputPlugin)
             .add(bevy::window::WindowPlugin::default())
             // Don't add WinitPlugin. This owns "core loop" (runner).
             // Bevy winit and render should be excluded
@@ -50,14 +50,13 @@ fn main() {
             }),
             ..default()
         }))
-        .add_startup_system(create_pipelines)
-        .add_system(close_on_esc)
-        .add_system(draw_life_system)
-        .add_system(update_window_title_system)
-        .add_system(
-            game_of_life_pipeline_system
-                .in_base_set(PostUpdate)
-                .run_if(on_timer(Duration::from_secs_f32(1.0 / 60.0))),
+        .add_systems(Startup, create_pipelines)
+        .add_systems(Update, close_on_esc)
+        .add_systems(Update, draw_life_system)
+        .add_systems(Update, update_window_title_system)
+        .add_systems(
+            PostUpdate,
+            game_of_life_pipeline_system.run_if(on_timer(Duration::from_secs_f32(1.0 / 60.0))),
         )
         .run();
 }
@@ -132,25 +131,26 @@ fn game_of_life_pipeline_system(
     mut game_of_life: ResMut<GameOfLifeComputePipeline>,
     mut place_over_frame: ResMut<RenderPassPlaceOverFrame>,
 ) {
-    let window_entity = window_query.single();
-    let primary_window = vulkano_windows
-        .get_vulkano_window_mut(window_entity)
-        .unwrap();
+    if let Ok(window_entity) = window_query.get_single() {
+        let primary_window = vulkano_windows
+            .get_vulkano_window_mut(window_entity)
+            .unwrap();
 
-    // Start frame
-    let before = match primary_window.renderer.acquire() {
-        Err(e) => {
-            bevy::log::error!("Failed to start frame: {}", e);
-            return;
-        }
-        Ok(f) => f,
-    };
+        // Start frame
+        let before = match primary_window.renderer.acquire() {
+            Err(e) => {
+                bevy::log::error!("Failed to start frame: {}", e);
+                return;
+            }
+            Ok(f) => f,
+        };
 
-    let after_compute = game_of_life.compute(before, [1.0, 0.0, 0.0, 1.0], [0.0; 4]);
-    let color_image = game_of_life.color_image();
-    let final_image = primary_window.renderer.swapchain_image_view();
-    let after_render = place_over_frame.render(after_compute, color_image, final_image);
+        let after_compute = game_of_life.compute(before, [1.0, 0.0, 0.0, 1.0], [0.0; 4]);
+        let color_image = game_of_life.color_image();
+        let final_image = primary_window.renderer.swapchain_image_view();
+        let after_render = place_over_frame.render(after_compute, color_image, final_image);
 
-    // Finish Frame
-    primary_window.renderer.present(after_render, true);
+        // Finish Frame
+        primary_window.renderer.present(after_render, true);
+    }
 }

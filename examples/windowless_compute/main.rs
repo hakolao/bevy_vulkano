@@ -18,14 +18,16 @@ use vulkano::{
 
 fn main() {
     App::new()
-        .add_plugin(bevy::log::LogPlugin::default())
-        .add_plugin(bevy::core::TaskPoolPlugin::default())
-        .add_plugin(WindowPlugin {
-            primary_window: None,
-            ..default()
-        })
-        .add_plugin(VulkanoWinitPlugin::default())
-        .add_startup_system(run_compute_shader_once_then_exit)
+        .add_plugins((
+            bevy::log::LogPlugin::default(),
+            bevy::core::TaskPoolPlugin::default(),
+            WindowPlugin {
+                primary_window: None,
+                ..default()
+            },
+            VulkanoWinitPlugin,
+        ))
+        .add_systems(Startup, run_compute_shader_once_then_exit)
         .run();
 }
 

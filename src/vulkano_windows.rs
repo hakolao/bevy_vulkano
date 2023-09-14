@@ -389,6 +389,7 @@ fn window_descriptor_to_vulkano_window_descriptor(
         PresentMode::Mailbox => vulkano::swapchain::PresentMode::Mailbox,
         PresentMode::AutoNoVsync => vulkano::swapchain::PresentMode::Immediate,
         PresentMode::AutoVsync => vulkano::swapchain::PresentMode::FifoRelaxed,
+        PresentMode::FifoRelaxed => vulkano::swapchain::PresentMode::FifoRelaxed,
     };
     window_descriptor.resizable = wd.resizable;
     window_descriptor.decorations = wd.decorations;
