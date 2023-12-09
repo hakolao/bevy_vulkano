@@ -299,7 +299,7 @@ pub fn winit_runner(mut app: App) {
         let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
 
         if let Some(app_exit_events) = app.world.get_resource::<Events<AppExit>>() {
-            if app_exit_event_reader.iter(app_exit_events).last().is_some() {
+            if app_exit_event_reader.read(app_exit_events).last().is_some() {
                 *control_flow = ControlFlow::Exit;
                 return;
             }
@@ -691,7 +691,7 @@ pub fn winit_runner(mut app: App) {
                 // purpose of a redraw request!
                 let mut redraw = false;
                 if let Some(app_redraw_events) = app.world.get_resource::<Events<RequestRedraw>>() {
-                    if redraw_event_reader.iter(app_redraw_events).last().is_some() {
+                    if redraw_event_reader.read(app_redraw_events).last().is_some() {
                         *control_flow = ControlFlow::Poll;
                         redraw = true;
                     }
