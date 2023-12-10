@@ -193,7 +193,7 @@ impl GameOfLifeComputePipeline {
         // Resize image if needed
         let img_dims = self.image.image().extent();
         let pipeline_layout = self.compute_life_pipeline.layout();
-        let desc_layout = pipeline_layout.set_layouts().get(0).unwrap();
+        let desc_layout = pipeline_layout.set_layouts().first().unwrap();
         let set = PersistentDescriptorSet::new(
             &self.descriptor_set_allocator,
             desc_layout.clone(),

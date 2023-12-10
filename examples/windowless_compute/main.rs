@@ -105,7 +105,7 @@ fn run_compute_shader_once_then_exit(
         StandardDescriptorSetAllocator::new(context.context.device().clone(), Default::default());
 
     // Create pipeline layout & descriptor set (data inputs)
-    let layout = pipeline.layout().set_layouts().get(0).unwrap();
+    let layout = pipeline.layout().set_layouts().first().unwrap();
     let set = PersistentDescriptorSet::new(
         &descriptor_set_allocator,
         layout.clone(),

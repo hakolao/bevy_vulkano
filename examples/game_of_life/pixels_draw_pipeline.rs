@@ -190,7 +190,7 @@ impl PixelsDrawPipeline {
     }
 
     fn create_image_sampler_nearest(&self, image: Arc<ImageView>) -> Arc<PersistentDescriptorSet> {
-        let layout = self.pipeline.layout().set_layouts().get(0).unwrap();
+        let layout = self.pipeline.layout().set_layouts().first().unwrap();
         let sampler = Sampler::new(self.gfx_queue.device().clone(), SamplerCreateInfo {
             mag_filter: Filter::Nearest,
             min_filter: Filter::Nearest,
