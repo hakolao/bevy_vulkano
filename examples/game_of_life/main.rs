@@ -13,7 +13,6 @@ use bevy::{
     window::{close_on_esc, WindowMode},
 };
 use bevy_vulkano::{BevyVulkanoContext, BevyVulkanoWindows, VulkanoWinitPlugin};
-use vulkano::image::ImageAccess;
 
 use crate::{game_of_life::GameOfLifeComputePipeline, place_over_frame::RenderPassPlaceOverFrame};
 
@@ -109,11 +108,7 @@ fn draw_life_system(
                 (pos.x / width).clamp(0.0, 1.0),
                 (pos.y / height).clamp(0.0, 1.0),
             );
-            let image_size = game_of_life
-                .color_image()
-                .image()
-                .dimensions()
-                .width_height();
+            let image_size = game_of_life.color_image().image().extent();
             let draw_pos = IVec2::new(
                 (image_size[0] as f32 * normalized.x) as i32,
                 (image_size[1] as f32 - image_size[1] as f32 * normalized.y) as i32,

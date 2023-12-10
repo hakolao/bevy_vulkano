@@ -22,12 +22,15 @@ use vulkano::{
     },
     device::{DeviceOwned, Queue},
     format::Format,
-    image::{ImageAccess, ImageUsage, StorageImage},
-    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
-    pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
+    image::{view::ImageView, Image, ImageCreateInfo, ImageType, ImageUsage},
+    memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator},
+    pipeline::{
+        compute::ComputePipelineCreateInfo, layout::PipelineDescriptorSetLayoutCreateInfo,
+        ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout,
+        PipelineShaderStageCreateInfo,
+    },
     sync::GpuFuture,
 };
-use vulkano_util::renderer::DeviceImageView;
 
 /// Pipeline holding double buffered grid & color image.
 /// Grids are used to calculate the state, and color image is used to show the output.
@@ -42,18 +45,19 @@ pub struct GameOfLifeComputePipeline {
     compute_life_pipeline: Arc<ComputePipeline>,
     life_in: Subbuffer<[u32]>,
     life_out: Subbuffer<[u32]>,
-    image: DeviceImageView,
+    image: Arc<ImageView>,
 }
 
 fn rand_grid(allocator: &Arc<StandardMemoryAllocator>, size: [u32; 2]) -> Subbuffer<[u32]> {
     Buffer::from_iter(
-        allocator,
+        allocator.clone(),
         BufferCreateInfo {
             usage: BufferUsage::STORAGE_BUFFER,
             ..Default::default()
         },
         AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
+            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                | MemoryTypeFilter::HOST_RANDOM_ACCESS,
             ..Default::default()
         },
         (0..(size[0] * size[1]))
@@ -73,25 +77,45 @@ impl GameOfLifeComputePipeline {
         let life_out = rand_grid(allocator, size);
 
         let compute_life_pipeline = {
-            let shader = compute_life_cs::load(compute_queue.device().clone()).unwrap();
+            let cs = compute_life_cs::load(allocator.device().clone())
+                .unwrap()
+                .entry_point("main")
+                .unwrap();
+            let stage = PipelineShaderStageCreateInfo::new(cs);
+            let layout = PipelineLayout::new(
+                allocator.device().clone(),
+                PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
+                    .into_pipeline_layout_create_info(allocator.device().clone())
+                    .unwrap(),
+            )
+            .unwrap();
+
             ComputePipeline::new(
                 allocator.device().clone(),
-                shader.entry_point("main").unwrap(),
-                &(),
                 None,
-                |_| {},
+                ComputePipelineCreateInfo::stage_layout(stage, layout),
             )
             .unwrap()
         };
 
-        let image = StorageImage::general_purpose_image_view(
-            allocator,
-            compute_queue.clone(),
-            size,
-            Format::R8G8B8A8_UNORM,
-            ImageUsage::SAMPLED | ImageUsage::STORAGE | ImageUsage::TRANSFER_DST,
+        let image = ImageView::new_default(
+            Image::new(
+                allocator.clone(),
+                ImageCreateInfo {
+                    image_type: ImageType::Dim2d,
+                    format: Format::R8G8B8A8_UNORM,
+                    extent: [size[0], size[1], 1],
+                    array_layers: 1,
+                    usage: ImageUsage::SAMPLED | ImageUsage::STORAGE | ImageUsage::TRANSFER_DST,
+
+                    ..Default::default()
+                },
+                AllocationCreateInfo::default(),
+            )
+            .unwrap(),
         )
         .unwrap();
+
         GameOfLifeComputePipeline {
             compute_queue,
             command_buffer_allocator: StandardCommandBufferAllocator::new(
@@ -100,6 +124,7 @@ impl GameOfLifeComputePipeline {
             ),
             descriptor_set_allocator: StandardDescriptorSetAllocator::new(
                 allocator.device().clone(),
+                Default::default(),
             ),
             compute_life_pipeline,
             life_in,
@@ -108,13 +133,13 @@ impl GameOfLifeComputePipeline {
         }
     }
 
-    pub fn color_image(&self) -> DeviceImageView {
+    pub fn color_image(&self) -> Arc<ImageView> {
         self.image.clone()
     }
 
     pub fn draw_life(&mut self, pos: IVec2) {
         let mut life_in = self.life_in.write().unwrap();
-        let size = self.image.image().dimensions().width_height();
+        let size = self.image.image().extent();
         if pos.y < 0 || pos.y >= size[1] as i32 || pos.x < 0 || pos.x >= size[0] as i32 {
             return;
         }
@@ -166,16 +191,20 @@ impl GameOfLifeComputePipeline {
         step: i32,
     ) {
         // Resize image if needed
-        let img_dims = self.image.image().dimensions().width_height();
+        let img_dims = self.image.image().extent();
         let pipeline_layout = self.compute_life_pipeline.layout();
         let desc_layout = pipeline_layout.set_layouts().get(0).unwrap();
-        let set =
-            PersistentDescriptorSet::new(&self.descriptor_set_allocator, desc_layout.clone(), [
+        let set = PersistentDescriptorSet::new(
+            &self.descriptor_set_allocator,
+            desc_layout.clone(),
+            [
                 WriteDescriptorSet::image_view(0, self.image.clone()),
                 WriteDescriptorSet::buffer(1, self.life_in.clone()),
                 WriteDescriptorSet::buffer(2, self.life_out.clone()),
-            ])
-            .unwrap();
+            ],
+            [],
+        )
+        .unwrap();
 
         let push_constants = compute_life_cs::PushConstants {
             life_color,
@@ -184,8 +213,11 @@ impl GameOfLifeComputePipeline {
         };
         builder
             .bind_pipeline_compute(self.compute_life_pipeline.clone())
+            .unwrap()
             .bind_descriptor_sets(PipelineBindPoint::Compute, pipeline_layout.clone(), 0, set)
+            .unwrap()
             .push_constants(pipeline_layout.clone(), 0, push_constants)
+            .unwrap()
             .dispatch([img_dims[0] / 8, img_dims[1] / 8, 1])
             .unwrap();
     }

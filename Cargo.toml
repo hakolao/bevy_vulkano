@@ -19,12 +19,12 @@ clipboard = ["gui", "egui_winit_vulkano/clipboard"]
 
 [dependencies]
 approx = "0.5.1"
-egui_winit_vulkano = { version = "0.24.0", optional = true, default_features = false, features = [] }
-image = "0.24.5"
+egui_winit_vulkano = { version = "0.26", optional = true, default_features = false, features = [] }
+image = "0.24.7"
 raw-window-handle = "0.5"
-vulkano = "0.33"
-vulkano-shaders = "0.33"
-vulkano-util = "0.33"
+vulkano = "0.34"
+vulkano-shaders = "0.34"
+vulkano-util = "0.34"
 winit = "0.28"
 
 [dependencies.bevy]
@@ -33,7 +33,7 @@ features = []
 version = "0.11"
 
 [dev-dependencies]
-anyhow = "1.0.66"
+anyhow = "1.0.75"
 rand = "0.8.5"
 
 [[example]]

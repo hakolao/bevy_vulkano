@@ -8,8 +8,12 @@ use vulkano::{
     descriptor_set::{
         allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
     },
-    memory::allocator::{AllocationCreateInfo, MemoryUsage},
-    pipeline::{ComputePipeline, Pipeline, PipelineBindPoint},
+    memory::allocator::{AllocationCreateInfo, MemoryTypeFilter},
+    pipeline::{
+        compute::ComputePipelineCreateInfo, layout::PipelineDescriptorSetLayoutCreateInfo,
+        ComputePipeline, Pipeline, PipelineBindPoint, PipelineLayout,
+        PipelineShaderStageCreateInfo,
+    },
     sync,
     sync::GpuFuture,
 };
@@ -57,26 +61,37 @@ fn run_compute_shader_once_then_exit(
                 "
             }
         }
-        let shader = cs::load(context.context.device().clone()).unwrap();
+        let cs = cs::load(context.context.device().clone())
+            .unwrap()
+            .entry_point("main")
+            .unwrap();
+        let stage = PipelineShaderStageCreateInfo::new(cs);
+        let layout = PipelineLayout::new(
+            context.context.device().clone(),
+            PipelineDescriptorSetLayoutCreateInfo::from_stages([&stage])
+                .into_pipeline_layout_create_info(context.context.device().clone())
+                .unwrap(),
+        )
+        .unwrap();
+
         ComputePipeline::new(
             context.context.device().clone(),
-            shader.entry_point("main").unwrap(),
-            &(),
             None,
-            |_| {},
+            ComputePipelineCreateInfo::stage_layout(stage, layout),
         )
         .unwrap()
     };
 
     // Create buffer
     let data_buffer = Buffer::from_iter(
-        context.context.memory_allocator(),
+        context.context.memory_allocator().clone(),
         BufferCreateInfo {
             usage: BufferUsage::STORAGE_BUFFER,
             ..Default::default()
         },
         AllocationCreateInfo {
-            usage: MemoryUsage::Upload,
+            memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                | MemoryTypeFilter::HOST_RANDOM_ACCESS,
             ..Default::default()
         },
         (0..65536u32).collect::<Vec<u32>>(),
@@ -87,13 +102,16 @@ fn run_compute_shader_once_then_exit(
         StandardCommandBufferAllocator::new(context.context.device().clone(), Default::default());
 
     let descriptor_set_allocator =
-        StandardDescriptorSetAllocator::new(context.context.device().clone());
+        StandardDescriptorSetAllocator::new(context.context.device().clone(), Default::default());
 
     // Create pipeline layout & descriptor set (data inputs)
     let layout = pipeline.layout().set_layouts().get(0).unwrap();
-    let set = PersistentDescriptorSet::new(&descriptor_set_allocator, layout.clone(), [
-        WriteDescriptorSet::buffer(0, data_buffer.clone()),
-    ])
+    let set = PersistentDescriptorSet::new(
+        &descriptor_set_allocator,
+        layout.clone(),
+        [WriteDescriptorSet::buffer(0, data_buffer.clone())],
+        [],
+    )
     .unwrap();
 
     // Build command buffer
@@ -105,12 +123,14 @@ fn run_compute_shader_once_then_exit(
     .unwrap();
     builder
         .bind_pipeline_compute(pipeline.clone())
+        .unwrap()
         .bind_descriptor_sets(
             PipelineBindPoint::Compute,
             pipeline.layout().clone(),
             0,
             set,
         )
+        .unwrap()
         .dispatch([1024, 1, 1])
         .unwrap();
     let command_buffer = builder.build().unwrap();

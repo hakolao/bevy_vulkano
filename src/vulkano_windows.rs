@@ -155,7 +155,7 @@ impl BevyVulkanoWindows {
                 winit_window,
                 &window_descriptor_to_vulkano_window_descriptor(window, pos),
                 move |ci| {
-                    ci.image_format = Some(vulkano::format::Format::B8G8R8A8_SRGB);
+                    ci.image_format = vulkano::format::Format::B8G8R8A8_SRGB;
                     ci.min_image_count = ci.min_image_count.max(2);
                 },
             );
@@ -166,9 +166,10 @@ impl BevyVulkanoWindows {
                     event_loop,
                     window_renderer.surface(),
                     window_renderer.graphics_queue(),
+                    vulkano::format::Format::B8G8R8A8_SRGB,
                     GuiConfig {
                         is_overlay: _settings.is_gui_overlay,
-                        preferred_format: Some(window_renderer.swapchain_format()),
+                        allow_srgb_render_target: true,
                         ..Default::default()
                     },
                 );

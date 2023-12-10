@@ -12,25 +12,34 @@ use std::sync::Arc;
 use vulkano::{
     buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer},
     command_buffer::{
-        allocator::StandardCommandBufferAllocator, AutoCommandBufferBuilder,
-        CommandBufferInheritanceInfo, CommandBufferUsage, SecondaryAutoCommandBuffer,
+        allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo},
+        AutoCommandBufferBuilder, CommandBufferInheritanceInfo, CommandBufferUsage,
+        SecondaryAutoCommandBuffer,
     },
     descriptor_set::{
         allocator::StandardDescriptorSetAllocator, PersistentDescriptorSet, WriteDescriptorSet,
     },
     device::{DeviceOwned, Queue},
-    image::ImageViewAbstract,
-    memory::allocator::{AllocationCreateInfo, MemoryUsage, StandardMemoryAllocator},
+    image::{
+        sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo, SamplerMipmapMode},
+        view::ImageView,
+    },
+    memory::allocator::{AllocationCreateInfo, MemoryTypeFilter, StandardMemoryAllocator},
     pipeline::{
         graphics::{
+            color_blend::{ColorBlendAttachmentState, ColorBlendState},
             input_assembly::InputAssemblyState,
-            vertex_input::Vertex,
+            multisample::MultisampleState,
+            rasterization::RasterizationState,
+            vertex_input::{Vertex, VertexDefinition},
             viewport::{Viewport, ViewportState},
+            GraphicsPipelineCreateInfo,
         },
-        GraphicsPipeline, Pipeline, PipelineBindPoint,
+        layout::PipelineDescriptorSetLayoutCreateInfo,
+        DynamicState, GraphicsPipeline, Pipeline, PipelineBindPoint, PipelineLayout,
+        PipelineShaderStageCreateInfo,
     },
     render_pass::Subpass,
-    sampler::{Filter, Sampler, SamplerAddressMode, SamplerCreateInfo, SamplerMipmapMode},
 };
 
 /// Vertex for textured quads
@@ -86,13 +95,14 @@ impl PixelsDrawPipeline {
     ) -> PixelsDrawPipeline {
         let (vertices, indices) = pos_quad(2.0, 2.0);
         let vertex_buffer = Buffer::from_iter(
-            &allocator,
+            allocator.clone(),
             BufferCreateInfo {
                 usage: BufferUsage::VERTEX_BUFFER,
                 ..Default::default()
             },
             AllocationCreateInfo {
-                usage: MemoryUsage::Upload,
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
             vertices,
@@ -100,13 +110,14 @@ impl PixelsDrawPipeline {
         .unwrap();
 
         let index_buffer = Buffer::from_iter(
-            &allocator,
+            allocator.clone(),
             BufferCreateInfo {
                 usage: BufferUsage::INDEX_BUFFER,
                 ..Default::default()
             },
             AllocationCreateInfo {
-                usage: MemoryUsage::Upload,
+                memory_type_filter: MemoryTypeFilter::PREFER_DEVICE
+                    | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE,
                 ..Default::default()
             },
             indices,
@@ -114,27 +125,63 @@ impl PixelsDrawPipeline {
         .unwrap();
 
         let pipeline = {
-            let vs = vs::load(gfx_queue.device().clone()).expect("failed to create shader module");
-            let fs = fs::load(gfx_queue.device().clone()).expect("failed to create shader module");
-            GraphicsPipeline::start()
-                .vertex_input_state(PosVertex::per_vertex())
-                .vertex_shader(vs.entry_point("main").unwrap(), ())
-                .input_assembly_state(InputAssemblyState::new())
-                .fragment_shader(fs.entry_point("main").unwrap(), ())
-                .viewport_state(ViewportState::viewport_dynamic_scissor_irrelevant())
-                .render_pass(subpass.clone())
-                .build(gfx_queue.device().clone())
-                .unwrap()
+            let vs = vs::load(allocator.device().clone())
+                .expect("failed to create shader module")
+                .entry_point("main")
+                .expect("shader entry point not found");
+            let fs = fs::load(allocator.device().clone())
+                .expect("failed to create shader module")
+                .entry_point("main")
+                .expect("shader entry point not found");
+            let vertex_input_state = PosVertex::per_vertex()
+                .definition(&vs.info().input_interface)
+                .unwrap();
+            let stages = [
+                PipelineShaderStageCreateInfo::new(vs),
+                PipelineShaderStageCreateInfo::new(fs),
+            ];
+            let layout = PipelineLayout::new(
+                allocator.device().clone(),
+                PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
+                    .into_pipeline_layout_create_info(allocator.device().clone())
+                    .unwrap(),
+            )
+            .unwrap();
+
+            GraphicsPipeline::new(
+                allocator.device().clone(),
+                None,
+                GraphicsPipelineCreateInfo {
+                    stages: stages.into_iter().collect(),
+                    vertex_input_state: Some(vertex_input_state),
+                    input_assembly_state: Some(InputAssemblyState::default()),
+                    viewport_state: Some(ViewportState::default()),
+                    rasterization_state: Some(RasterizationState::default()),
+                    multisample_state: Some(MultisampleState::default()),
+                    color_blend_state: Some(ColorBlendState::with_attachment_states(
+                        subpass.num_color_attachments(),
+                        ColorBlendAttachmentState::default(),
+                    )),
+                    dynamic_state: [DynamicState::Viewport].into_iter().collect(),
+                    subpass: Some(subpass.clone().into()),
+                    ..GraphicsPipelineCreateInfo::layout(layout)
+                },
+            )
+            .unwrap()
         };
+        let command_buffer_allocator = StandardCommandBufferAllocator::new(
+            allocator.device().clone(),
+            StandardCommandBufferAllocatorCreateInfo {
+                secondary_buffer_count: 32,
+                ..Default::default()
+            },
+        );
+        let descriptor_set_allocator =
+            StandardDescriptorSetAllocator::new(allocator.device().clone(), Default::default());
         PixelsDrawPipeline {
             gfx_queue,
-            command_buffer_allocator: StandardCommandBufferAllocator::new(
-                allocator.device().clone(),
-                Default::default(),
-            ),
-            descriptor_set_allocator: StandardDescriptorSetAllocator::new(
-                allocator.device().clone(),
-            ),
+            command_buffer_allocator,
+            descriptor_set_allocator,
             pipeline,
             subpass,
             vertices: vertex_buffer,
@@ -142,10 +189,7 @@ impl PixelsDrawPipeline {
         }
     }
 
-    fn create_image_sampler_nearest(
-        &self,
-        image: Arc<dyn ImageViewAbstract>,
-    ) -> Arc<PersistentDescriptorSet> {
+    fn create_image_sampler_nearest(&self, image: Arc<ImageView>) -> Arc<PersistentDescriptorSet> {
         let layout = self.pipeline.layout().set_layouts().get(0).unwrap();
         let sampler = Sampler::new(self.gfx_queue.device().clone(), SamplerCreateInfo {
             mag_filter: Filter::Nearest,
@@ -155,9 +199,12 @@ impl PixelsDrawPipeline {
             ..Default::default()
         })
         .unwrap();
-        PersistentDescriptorSet::new(&self.descriptor_set_allocator, layout.clone(), [
-            WriteDescriptorSet::image_view_sampler(0, image, sampler),
-        ])
+        PersistentDescriptorSet::new(
+            &self.descriptor_set_allocator,
+            layout.clone(),
+            [WriteDescriptorSet::image_view_sampler(0, image, sampler)],
+            [],
+        )
         .unwrap()
     }
 
@@ -165,8 +212,8 @@ impl PixelsDrawPipeline {
     pub fn draw(
         &mut self,
         viewport_dimensions: [u32; 2],
-        image: Arc<dyn ImageViewAbstract>,
-    ) -> SecondaryAutoCommandBuffer {
+        image: Arc<ImageView>,
+    ) -> Arc<SecondaryAutoCommandBuffer> {
         let mut builder = AutoCommandBufferBuilder::secondary(
             &self.command_buffer_allocator,
             self.gfx_queue.queue_family_index(),
@@ -179,20 +226,30 @@ impl PixelsDrawPipeline {
         .unwrap();
         let desc_set = self.create_image_sampler_nearest(image);
         builder
-            .set_viewport(0, [Viewport {
-                origin: [0.0, 0.0],
-                dimensions: [viewport_dimensions[0] as f32, viewport_dimensions[1] as f32],
-                depth_range: 0.0..1.0,
-            }])
+            .set_viewport(
+                0,
+                [Viewport {
+                    offset: [0.0, 0.0],
+                    extent: [viewport_dimensions[0] as f32, viewport_dimensions[1] as f32],
+                    depth_range: 0.0..=1.0,
+                }]
+                .into_iter()
+                .collect(),
+            )
+            .unwrap()
             .bind_pipeline_graphics(self.pipeline.clone())
+            .unwrap()
             .bind_descriptor_sets(
                 PipelineBindPoint::Graphics,
                 self.pipeline.layout().clone(),
                 0,
                 desc_set,
             )
+            .unwrap()
             .bind_vertex_buffers(0, self.vertices.clone())
+            .unwrap()
             .bind_index_buffer(self.indices.clone())
+            .unwrap()
             .draw_indexed(self.indices.len() as u32, 1, 0, 0, 0)
             .unwrap();
         builder.build().unwrap()
