@@ -75,7 +75,7 @@ pub(crate) fn despawn_window(
     mut close_events: EventWriter<WindowClosed>,
     mut vulkano_windows: NonSendMut<BevyVulkanoWindows>,
 ) {
-    for window in closed.iter() {
+    for window in closed.read() {
         info!("Closing window {:?}", window);
         // Guard to verify that the window is in fact actually gone,
         // rather than having the component added and removed in the same frame.
