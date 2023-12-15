@@ -9,7 +9,7 @@ license = "Apache-2.0"
 name = "bevy_vulkano"
 readme = "README.md"
 repository = "https://github.com/hakolao/bevy_vulkano"
-version = "0.13.0"
+version = "0.14.0"
 
 [features]
 default = []
@@ -19,7 +19,7 @@ clipboard = ["gui", "egui_winit_vulkano/clipboard"]
 
 [dependencies]
 approx = "0.5.1"
-egui_winit_vulkano = { version = "0.26", optional = true, default_features = false, features = [] }
+egui_winit_vulkano = { version = "0.27", optional = true, default_features = false, features = [] }
 image = "0.24.7"
 raw-window-handle = "0.5"
 vulkano = "0.34"
